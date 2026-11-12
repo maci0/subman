@@ -586,6 +586,8 @@ func (a *App) UpdateAccount(acc model.Account) (model.AccountView, error) {
 	// Written so that NaN, which compares false to everything, is refused too.
 	case !(acc.UsageThreshold >= 0 && acc.UsageThreshold <= 100):
 		return model.AccountView{}, fmt.Errorf("%w: threshold must be 1 to 100", ErrInvalid)
+	case acc.AgentBin != "" && sandbox.ValidProgram(acc.AgentBin) != nil:
+		return model.AccountView{}, fmt.Errorf("%w: agent binary must be a single path with no shell metacharacters", ErrInvalid)
 	}
 	// Identity and the copied credential stay. The form edits the rest.
 	current.Name = acc.Name

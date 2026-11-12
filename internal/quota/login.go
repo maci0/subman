@@ -283,7 +283,7 @@ func postLogin(ctx context.Context, endpoint, contentType, agent string, body io
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", agent)
-	res, err := http.DefaultClient.Do(req)
+	res, err := noRedirect.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", hostOf(endpoint), err)
 	}
@@ -419,7 +419,7 @@ func startDeviceLogin(ctx context.Context, flow deviceFlow) (*Login, error) {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	res, err := noRedirect.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", hostOf(flow.discoveryURL), err)
 	}

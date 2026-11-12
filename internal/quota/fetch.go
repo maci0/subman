@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -278,6 +277,9 @@ func fetchAntigravity(ctx context.Context, acc model.Account, now time.Time) mod
 	if bin == "" {
 		bin = "agy"
 	}
+	if err := sandbox.ValidProgram(bin); err != nil {
+		return fail("sandbox", now)
+	}
 	out, err := sandbox.Run(ctx, sandbox.Command{
 		Dir: acc.AgentHome, Writable: acc.AgentHome,
 		Args:  []string{bin, "--print", "/usage", "--output-format", "json", "--print-timeout", "15s"},
@@ -307,7 +309,7 @@ func get(ctx context.Context, url, token string, extra map[string]string) (int, 
 	for k, v := range extra {
 		req.Header.Set(k, v)
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := noRedirect.Do(req)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -319,8 +321,14 @@ func get(ctx context.Context, url, token string, extra map[string]string) (int, 
 	if len(body) > maxBody {
 		return res.StatusCode, nil, fmt.Errorf("body over %d bytes", maxBody)
 	}
-	if loc := res.Header.Get("Location"); loc != "" && !strings.HasPrefix(loc, "https://") {
-		return res.StatusCode, nil, fmt.Errorf("refused redirect")
-	}
 	return res.StatusCode, body, nil
+}
+
+// noRedirect is the client for every request that carries a bearer token.
+// http.DefaultClient follows up to ten redirects and resends the headers,
+// which would hand the token to whatever host the first answer names.
+var noRedirect = &http.Client{CheckRedirect: refuseRedirect}
+
+func refuseRedirect(*http.Request, []*http.Request) error {
+	return http.ErrUseLastResponse
 }

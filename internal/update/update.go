@@ -23,6 +23,13 @@ import (
 	"golang.org/x/mod/semver"
 )
 
+// noRedirect refuses every redirect. FetchLatest may carry a GitHub token,
+// and Install fetches the binary that replaces this one; either following a
+// redirect would trust a host this code never checked.
+var noRedirect = &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+	return http.ErrUseLastResponse
+}}
+
 const (
 	DefaultRepo = "maci0/subman"
 	maxMeta     = 1 << 20
@@ -134,7 +141,9 @@ func FetchLatest(ctx context.Context, repo string) (Release, error) {
 	if tok := os.Getenv("GITHUB_TOKEN"); tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
-	res, err := http.DefaultClient.Do(req)
+	// The token, when set, was issued for api.github.com. A redirect would
+	// carry it to the host the answer names.
+	res, err := noRedirect.Do(req)
 	if err != nil {
 		return Release{}, err
 	}
@@ -229,7 +238,9 @@ func download(ctx context.Context, url string, limit int64) ([]byte, error) {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", "subman-update")
-	res, err := http.DefaultClient.Do(req)
+	// A redirect leaves the host trustedURL already checked. Following it
+	// would fetch the replacement binary from whatever host the answer names.
+	res, err := noRedirect.Do(req)
 	if err != nil {
 		return nil, err
 	}

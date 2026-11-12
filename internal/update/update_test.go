@@ -140,4 +140,17 @@ func TestDownloadHonorsCap(t *testing.T) {
 	if err := Install(t.Context(), plan, t.TempDir()+"/subman"); err == nil {
 		t.Fatal("installed from a non-github url")
 	}
+
+	// A redirect leaves the host trustedURL checked. It is not followed.
+	var followed int
+	srv.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/a" {
+			http.Redirect(w, r, srv.URL+"/elsewhere", http.StatusFound)
+			return
+		}
+		followed++
+	})
+	if _, err := download(t.Context(), srv.URL+"/a", 1024); err == nil || followed != 0 {
+		t.Fatalf("redirect followed %d times: %v", followed, err)
+	}
 }

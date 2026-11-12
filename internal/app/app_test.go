@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -448,6 +449,13 @@ func TestOverviewCarriesWhatTheWindowWouldOtherwiseMirror(t *testing.T) {
 	view, err := a.Import(model.ImportRequest{Name: "work", Provider: model.ProviderClaude, CredentialPath: src})
 	if err != nil {
 		t.Fatal(err)
+	}
+	// AgentBin is executed on every poll, so a command line is refused and
+	// nothing else in the same save is written.
+	bad := view.Account
+	bad.AgentBin = "agy;id"
+	if _, err := a.UpdateAccount(bad); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("a command line was stored: %v", err)
 	}
 	if view.Threshold != model.DefaultUsageThreshold {
 		t.Fatalf("threshold %v", view.Threshold)

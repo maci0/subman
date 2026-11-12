@@ -11,6 +11,32 @@ import (
 	"github.com/maci0/subman/internal/model"
 )
 
+// A usage answer that redirects must not be followed: the next request would
+// carry the bearer token to a host the call never named.
+func TestGetRefusesRedirect(t *testing.T) {
+	var leaks int
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/usage" {
+			if r.Header.Get("Authorization") == "" {
+				t.Errorf("usage call sent no token")
+			}
+			http.Redirect(w, r, srv.URL+"/stolen", http.StatusFound)
+			return
+		}
+		leaks++
+		if auth := r.Header.Get("Authorization"); auth != "" {
+			t.Errorf("token forwarded to %s: %q", r.URL.Path, auth)
+		}
+	}))
+	defer srv.Close()
+
+	status, _, err := get(context.Background(), srv.URL+"/usage", "secret", nil)
+	if status != http.StatusFound || err != nil || leaks != 0 {
+		t.Fatalf("status %d, leaks %d, err %v", status, leaks, err)
+	}
+}
+
 func TestNextMonthly(t *testing.T) {
 	at := func(s string) time.Time {
 		v, err := time.Parse(time.RFC3339, s)

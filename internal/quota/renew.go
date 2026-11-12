@@ -204,7 +204,7 @@ func grokTokenURL(ctx context.Context) (string, error) {
 		return "", err
 	}
 	req.Header.Set("Accept", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	res, err := noRedirect.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -242,7 +242,7 @@ func postForm(ctx context.Context, url string, fields map[string]string) (token,
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", userAgent)
-	res, err := http.DefaultClient.Do(req)
+	res, err := noRedirect.Do(req)
 	if err != nil {
 		return token{}, fmt.Errorf("%s: %w", hostOf(url), err)
 	}

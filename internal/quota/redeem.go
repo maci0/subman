@@ -72,7 +72,7 @@ func postRedeem(ctx context.Context, endpoint, token string, headers map[string]
 	for name, value := range headers {
 		req.Header.Set(name, value)
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := noRedirect.Do(req)
 	if err != nil {
 		return fmt.Errorf("%s: %w", hostOf(endpoint), err)
 	}

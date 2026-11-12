@@ -57,6 +57,16 @@ func defaultBin(p model.Provider) string {
 	}
 }
 
+// ValidProgram reports whether program is one executable name or path.
+// The poll and the probe pass it straight to exec, so a value with a space,
+// a shell metacharacter, or ".." is a command line, not a program.
+func ValidProgram(program string) error {
+	if program == "" || strings.ContainsAny(program, " \t\n;|&$`") || strings.Contains(program, "..") {
+		return errors.New("agent binary must be a single path with no shell metacharacters")
+	}
+	return nil
+}
+
 func homeEnv(p model.Provider) string {
 	switch p {
 	case model.ProviderClaude:
@@ -84,8 +94,8 @@ func Probe(ctx context.Context, acc model.Account) model.ProbeResult {
 		res.Note = "no agent binary for this provider"
 		return res
 	}
-	if strings.ContainsAny(bin, " \t\n;|&$`") || strings.Contains(bin, "..") {
-		res.Note = "agent binary must be a single path with no shell metacharacters"
+	if err := ValidProgram(bin); err != nil {
+		res.Note = err.Error()
 		return res
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
