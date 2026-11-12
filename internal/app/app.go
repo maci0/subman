@@ -450,7 +450,7 @@ func (a *App) awaitLogin(provider model.Provider, owner string) ([]byte, error) 
 }
 
 // Add stores credential as a new account and polls it. The name defaults to
-// the login's identity and the tier to the provider's lowest; the poll then
+// the login's identity and the tier is left unset; the poll then
 // adopts the tier and dates the provider states. req.CredentialPath is not used.
 func (a *App) Add(req model.ImportRequest, credential []byte) (model.AccountView, error) {
 	a.mu.Lock()

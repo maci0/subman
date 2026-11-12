@@ -48,8 +48,13 @@ func Decide(in Input) (model.LadderState, *model.Step) {
 	if in.Reading != nil && in.Reading.OK && in.Reading.TierID != "" {
 		tierID = in.Reading.TierID
 	}
-	if tierID == "" {
-		tierID = tiers[0].ID
+	// An empty tier is "not reported", never the cheapest plan. Guessing one
+	// would step a subscription whose plan nobody has stated.
+	if !model.KnownTier(in.Account.Provider, tierID) {
+		st.Phase = model.PhaseClimbing
+		st.TierID = ""
+		st.Note = "the tier is not known, so the ladder will not act"
+		return st, nil
 	}
 	st.TierID = tierID
 

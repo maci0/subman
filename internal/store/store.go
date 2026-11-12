@@ -423,7 +423,8 @@ func trimHistory(path string) error {
 // History returns the account's last maxHistory plan changes, newest first.
 // An account that never stepped has none.
 //
-// The file is append-only and never trimmed, so only its tail is decoded:
+// AppendHistory keeps the file at maxHistory lines. A file that grew past
+// that before it was trimmed is still only decoded at its tail:
 // each line is one JSON object, and a line over maxLine cannot be one, so
 // maxHistory of them fit in the window that is read.
 func (r *Root) History(id string) ([]model.HistoryEntry, error) {

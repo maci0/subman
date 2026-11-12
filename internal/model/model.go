@@ -85,9 +85,10 @@ type Account struct {
 	// The vendor CLI's own file is left untouched after that copy.
 	CredentialFile string `json:"credentialFile"`
 
-	// ActivatedAt is when this subscription started being used here.
-	// RenewalAt is the next billing date, entered by the operator:
-	// none of the usage endpoints return it.
+	// ActivatedAt is when this subscription started.
+	// RenewalAt is the next billing date: typed by the operator, or adopted
+	// from a poll when the provider states it. An estimate fills an empty
+	// date only, and is marked with RenewalEstimated.
 	ActivatedAt *time.Time `json:"activatedAt,omitempty"`
 	RenewalAt   *time.Time `json:"renewalAt,omitempty"`
 	// RenewalEstimated is true while RenewalAt is an estimate adopted from a
