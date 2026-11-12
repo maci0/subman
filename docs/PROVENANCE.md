@@ -436,3 +436,9 @@ The operator asked to fix the two findings of the third Impeccable audit (18/20)
 Verified in Chromium with `.scratch/ui/mock.js`, 960x640, light and dark: every text node clears AA contrast on the board, account view, Edit sheet, and Add dialog; no control is under 24px (the two 32x18 inputs are Radix's aria-hidden form inputs); every focus stop shows a 2px `rgb(15, 122, 66)` outline at a 2px offset; Archivo and JetBrains Mono load. `bun test`, `bun run build`, `oxlint`, `vnu --format text` on `frontend/dist/index.html` and `docs/img/art.html`, the Impeccable detector on `frontend/src` (no findings), `go vet ./...`, `go test -race ./...`, `git diff --check`.
 
 Not verified: the WebKitGTK window and a screen reader. Lucide icons stay; relumea's icon set was not adopted.
+
+## 2026-11-12 release workflow pins
+
+`.github/workflows/release.yml` referenced every action by a moving major tag, and the workflow-wide `contents: write` token reached the test and build jobs, which only read the checkout. Each action is now pinned to the commit of its current release on the same major (`actions/checkout` v4.3.1, `actions/setup-go` v5.6.0, `oven-sh/setup-bun` v2.2.0, `actions/cache` v4.3.0, `actions/upload-artifact` v4.6.2, `actions/download-artifact` v4.3.0), with the tag in a trailing comment. Both checkouts set `persist-credentials: false`. The test and build jobs set `contents: read`; publish keeps the workflow default so `gh release create` can still write. `actions/setup-go` keys its module cache on `go.sum`, and the build job caches `~/.bun/install/cache` against `frontend/bun.lock`. `.github/dependabot.yml` watches the `github-actions` ecosystem weekly so the pins move by pull request.
+
+Not verified: the workflow has not been run from this change.
