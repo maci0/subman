@@ -4,7 +4,7 @@ Go desktop tool that tracks Claude, Codex, Grok, and Antigravity subscriptions a
 
 ## Layout
 
-- `main.go` window, and the CLI when the arguments are a command. `cmd/subman` is the CLI without WebKit. `internal/cli` implements The CLI Spec v0.3.
+- `main.go` window, and the CLI when the arguments are a command. `cmd/subman` is the CLI without WebKit. `internal/cli` implements The CLI Spec v0.3. `cmd/pollonce` is a one-off poll of a real credential (`SUBMAN_POLL_DATA`, `SUBMAN_POLL_CRED`), not part of the tool.
 - `internal/model` documents the window reads.
 - `internal/store` one directory per account under the data root, plus `settings.json` (window preferences) and `update.json`.
 - `internal/quota` parsers, the poll, token renewal, and the in-app sign-in (`login.go`: OAuth with PKCE for Claude and Codex, a device code for Grok). Parsers are pure.
