@@ -147,6 +147,22 @@ func TruncateRunes(s string, n int) string {
 	return s[:i]
 }
 
+// TruncateBytes shortens b to at most n bytes without ending inside a
+// multi-byte character. n <= 0 returns nil. When n lands on a rune start it
+// is already the right index, so the cut never reads past the end of b.
+func TruncateBytes(b []byte, n int) []byte {
+	if n <= 0 || len(b) == 0 {
+		return nil
+	}
+	if n > len(b) {
+		n = len(b)
+	}
+	for n > 0 && n < len(b) && !utf8.RuneStart(b[n]) {
+		n--
+	}
+	return b[:n]
+}
+
 func (a Account) Threshold() float64 {
 	if a.UsageThreshold <= 0 || a.UsageThreshold > 100 {
 		return DefaultUsageThreshold

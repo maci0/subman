@@ -212,6 +212,21 @@ func TestClaudeReadsEveryWeeklyBlock(t *testing.T) {
 		}
 	}
 	if got := strings.Join(labels, " | "); got != "5-hour | All models | Oauth Apps | Sonnet" {
-		t.Fatalf("windows %q", got)
+		t.Fatalf("window labels %q", got)
+	}
+}
+
+func TestUnixMaybeRoundsMilliseconds(t *testing.T) {
+	want := time.Date(2026, 11, 11, 0, 0, 1, 0, time.UTC)
+	got := unixMaybe(float64(want.UnixMilli() - 400))
+	if got == nil || !got.Equal(want) {
+		t.Fatalf("round up: %v", got)
+	}
+	down := unixMaybe(float64(want.Add(-time.Second).UnixMilli() + 400))
+	if down == nil || !down.Equal(want.Add(-time.Second)) {
+		t.Fatalf("round down: %v", down)
+	}
+	if got := unixMaybe(1e20); got != nil {
+		t.Fatalf("beyond range: %v", got)
 	}
 }

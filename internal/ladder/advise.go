@@ -34,12 +34,7 @@ func Advise(acc model.Account, reading *model.Reading, now time.Time) []model.Ad
 	top := AtHighest(acc, reading)
 	var lowest, highest model.Tier
 	if len(tiers) > 0 {
-		lowest, highest = tiers[0], tiers[0]
-		for _, t := range tiers {
-			if t.Rank > highest.Rank {
-				highest = t
-			}
-		}
+		lowest, highest = bounds(tiers)
 	}
 	tierKnown := model.KnownTier(acc.Provider, currentTierID(acc, reading))
 

@@ -175,6 +175,20 @@ func TestResetOnlyAtTheHighestTier(t *testing.T) {
 		t.Fatal("a reset that does not apply was offered")
 	}
 	if _, step := Decide(Input{Account: a, Reading: top}); step == nil || step.To != "pro" {
-		t.Fatalf("with no usable reset the ladder should drop, got %+v", step)
+		t.Fatalf("no usable reset should drop, got %+v", step)
+	}
+}
+
+func TestCodexDropsFromProInsteadOfSteppingToProLite(t *testing.T) {
+	a := model.Account{Provider: model.ProviderCodex, TierID: "pro", Ladder: true, ChangeCommand: "/bin/true"}
+	st, step := Decide(Input{Account: a, Reading: reading(100, "pro"), Now: time.Now()})
+	if step == nil || step.From != "pro" || step.To != "plus" || st.Phase != model.PhaseWaiting {
+		t.Fatalf("pro should drop to plus, got %+v %+v", st, step)
+	}
+	lite := a
+	lite.TierID = "prolite"
+	st, step = Decide(Input{Account: lite, Reading: reading(100, "prolite"), Now: time.Now()})
+	if step == nil || step.To != "plus" || st.Phase != model.PhaseWaiting {
+		t.Fatalf("pro lite should drop to plus, got %+v %+v", st, step)
 	}
 }

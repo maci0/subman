@@ -55,6 +55,10 @@ const (
 	// minDevicePoll is the shortest wait between device-code polls when the
 	// provider names none (RFC 8628 section 3.5 default).
 	minDevicePoll = 5 * time.Second
+	// maxDevicePoll caps how far a slow_down may stretch the wait between
+	// device-code polls. The server names the step and could otherwise push
+	// the interval without a bound for as long as the device code stays valid.
+	maxDevicePoll = 60 * time.Second
 	// callbackDrain is how long a closing callback server may finish a response.
 	callbackDrain = 2 * time.Second
 	// maxLoginBody caps a token or discovery answer.
@@ -500,6 +504,9 @@ func startDeviceLogin(ctx context.Context, flow deviceFlow) (*Login, error) {
 					continue
 				case oauthErr == "slow_down":
 					interval += flow.minPoll
+					if interval > maxDevicePoll {
+						interval = maxDevicePoll
+					}
 					timer.Reset(interval)
 					continue
 				case err != nil:

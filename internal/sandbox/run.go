@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/maci0/subman/internal/model"
 )
 
 // RunError is a child that was not started because it could not be confined.
@@ -74,7 +76,7 @@ func Run(ctx context.Context, cmd Command) ([]byte, error) {
 	err = child.Run()
 	out := buf.Bytes()
 	if len(out) > maxOutput {
-		out = append(out[:runeCut(out, maxOutput)], []byte("\n…truncated")...)
+		out = append(model.TruncateBytes(out, maxOutput), []byte("\n…truncated")...)
 	}
 	if err != nil && bytes.HasPrefix(out, []byte("sandbox:")) {
 		line := string(out)
@@ -104,22 +106,7 @@ func outputString(out []byte) string {
 	if len(out) <= maxOutput {
 		return string(out)
 	}
-	return string(out[:runeCut(out, maxOutput)]) + "\n…truncated"
-}
-
-// runeCut is the furthest index at or before n that begins a rune, so a byte
-// budget never ends inside a multi-byte character. n <= 0 returns 0.
-func runeCut(b []byte, n int) int {
-	if n <= 0 {
-		return 0
-	}
-	if n > len(b) {
-		n = len(b)
-	}
-	for n > 0 && !utf8.RuneStart(b[n]) {
-		n--
-	}
-	return n
+	return string(model.TruncateBytes(out, maxOutput)) + "\n…truncated"
 }
 
 func noteFor(err error, out []byte) string {

@@ -543,7 +543,9 @@ func unixMaybe(v float64) *time.Time {
 	if sec > 253402300799 {
 		return nil
 	}
-	t := time.Unix(int64(sec), 0).UTC()
+	// Round, so a millisecond timestamp does not lose up to a second. A
+	// truncated expiry reads as already past when it has not.
+	t := time.Unix(int64(math.Round(sec)), 0).UTC()
 	return &t
 }
 

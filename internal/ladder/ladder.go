@@ -106,13 +106,7 @@ func Decide(in Input) (model.LadderState, *model.Step) {
 	}
 
 	current := findTier(tiers, tierID)
-	lowest := tiers[0]
-	highest := tiers[len(tiers)-1]
-	for _, t := range tiers {
-		if t.Rank > highest.Rank {
-			highest = t
-		}
-	}
+	lowest, highest := bounds(tiers)
 
 	// At the top with a reset banked: the reset refills this tier, so the
 	// ladder uses it instead of dropping.
@@ -152,18 +146,26 @@ func AtHighest(acc model.Account, reading *model.Reading) bool {
 	if reading != nil && reading.OK && reading.TierID != "" {
 		id = reading.TierID
 	}
-	top := 0
-	for _, t := range tiers {
-		if t.Rank > top {
-			top = t.Rank
-		}
-	}
+	_, highest := bounds(tiers)
 	for _, t := range tiers {
 		if t.ID == id {
-			return t.Rank == top
+			return t.Rank == highest.Rank
 		}
 	}
 	return false
+}
+
+// bounds is the cheapest tier and the highest rank. The last entry is not
+// the highest rank: Codex lists Pro Lite after Pro at the same rank, and the
+// first of a shared rank is the one a drop names.
+func bounds(tiers []model.Tier) (lowest, highest model.Tier) {
+	lowest, highest = tiers[0], tiers[0]
+	for _, t := range tiers[1:] {
+		if t.Rank > highest.Rank {
+			highest = t
+		}
+	}
+	return lowest, highest
 }
 
 // ShouldReset reports whether a banked reset should be used now. A reset is
