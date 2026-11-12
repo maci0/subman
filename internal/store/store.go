@@ -153,6 +153,11 @@ func (r *Root) Load(id string) (model.Account, error) {
 	if err := json.Unmarshal(body, &acc); err != nil {
 		return model.Account{}, err
 	}
+	// The directory is the identity. A file that names a different id would
+	// make Save write that other account's directory.
+	if acc.ID != id {
+		return model.Account{}, fmt.Errorf("account.json names %q, not %q", acc.ID, id)
+	}
 	acc.Home = dir
 	acc.AgentHome = filepath.Join(dir, "agent")
 	// Derived like Home, so a data directory that was moved keeps working.

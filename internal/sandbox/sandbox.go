@@ -62,10 +62,24 @@ func defaultBin(p model.Provider) string {
 // The poll and the probe pass it straight to exec, so a value with a space,
 // a shell metacharacter, or ".." is a command line, not a program.
 func ValidProgram(program string) error {
-	if program == "" || strings.ContainsAny(program, " \t\n;|&$`") || strings.Contains(program, "..") {
+	if program == "" || strings.ContainsAny(program, " \t\n;|&$`") || hasDotDot(program) {
 		return errors.New("agent binary must be a single path with no shell metacharacters")
 	}
 	return nil
+}
+
+// hasDotDot reports whether program has ".." as its own path segment.
+// A substring check rejects a legitimate name such as "my..tool" and still
+// describes the wrong thing: the segment is what escapes a directory.
+func hasDotDot(program string) bool {
+	for _, sep := range []string{string(filepath.Separator), "/"} {
+		for _, seg := range strings.Split(program, sep) {
+			if seg == ".." {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func homeEnv(p model.Provider) string {

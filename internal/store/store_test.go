@@ -45,7 +45,41 @@ func TestImportRoundTrip(t *testing.T) {
 	}
 	body, err := os.ReadFile(src)
 	if err != nil || string(body) != `{"claudeAiOauth":{"accessToken":"x"}}` {
-		t.Fatal("source credential was modified")
+		t.Fatal("source file changed")
+	}
+}
+
+func TestLoadRejectsAnAccountThatNamesAnotherID(t *testing.T) {
+	dir := t.TempDir()
+	root, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := filepath.Join(dir, "src.json")
+	if err := os.WriteFile(src, []byte(`{"token":"x"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	acc, err := root.Import(model.ImportRequest{Name: "work", Provider: model.ProviderGrok, CredentialPath: src})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(filepath.Join(acc.Home, "account.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	forged := strings.Replace(string(body), `"id": "`+acc.ID+`"`, `"id": "grok-other"`, 1)
+	if forged == string(body) {
+		t.Fatal("account.json has no id to replace")
+	}
+	if err := os.WriteFile(filepath.Join(acc.Home, "account.json"), []byte(forged), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := root.Load(acc.ID); err == nil {
+		t.Fatal("loaded an account whose file names a different id")
+	}
+	problems, err := root.Unreadable()
+	if err != nil || len(problems) != 1 {
+		t.Fatalf("problems %v %v", problems, err)
 	}
 }
 

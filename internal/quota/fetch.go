@@ -78,9 +78,17 @@ func fetchRenewing(ctx context.Context, acc model.Account, now time.Time) (model
 
 // readCredential reads and decodes the account's own credential copy.
 func readCredential(path string) (map[string]any, error) {
-	body, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
+	}
+	defer f.Close()
+	body, err := io.ReadAll(io.LimitReader(f, maxBody+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > maxBody {
+		return nil, fmt.Errorf("credential is over %d bytes", maxBody)
 	}
 	cred := map[string]any{}
 	if err := json.Unmarshal(body, &cred); err != nil {

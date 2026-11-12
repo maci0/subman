@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -150,8 +151,12 @@ func FetchLatest(ctx context.Context, repo string) (Release, error) {
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "subman-update")
-	if tok := os.Getenv("GITHUB_TOKEN"); tok != "" {
-		req.Header.Set("Authorization", "Bearer "+tok)
+	// The token was issued for this tool's own repo. SUBMAN_UPDATE_REPO may
+	// name another one, and the token must not be sent there.
+	if repo == DefaultRepo {
+		if tok := os.Getenv("GITHUB_TOKEN"); tok != "" {
+			req.Header.Set("Authorization", "Bearer "+tok)
+		}
 	}
 	// The token, when set, was issued for api.github.com. A redirect would
 	// carry it to the host the answer names.
@@ -291,8 +296,21 @@ func sumFor(sums, name string) (string, bool) {
 	return "", false
 }
 
-func trustedURL(url string) bool {
-	return strings.HasPrefix(url, "https://github.com/") || strings.HasPrefix(url, "https://release-assets.github.com/")
+func trustedURL(raw string) bool {
+	// The host has to be exactly one of the two, not a string that starts
+	// with one: "https://github.com.evil.example/…" has the same prefix as
+	// "https://github.com/" and is a different host. Userinfo is refused
+	// for the same reason: the prefix would match while the request goes
+	// where the userinfo names.
+	u, err := url.Parse(raw)
+	if err != nil || u.User != nil || u.Host == "" || u.RawQuery != "" || u.Fragment != "" {
+		return false
+	}
+	switch u.Scheme + "://" + u.Host + "/" {
+	case "https://github.com/", "https://release-assets.github.com/":
+		return true
+	}
+	return false
 }
 
 func validRepo(repo string) bool {

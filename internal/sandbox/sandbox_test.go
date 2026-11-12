@@ -68,7 +68,16 @@ func TestProbeConfinesWrites(t *testing.T) {
 func TestProbeRejectsShellMetacharacters(t *testing.T) {
 	res := Probe(t.Context(), model.Account{ID: "t2", AgentHome: t.TempDir(), AgentBin: "claude;id"})
 	if res.OK || res.Sandboxed {
-		t.Fatalf("ran a metacharacter binary: %+v", res)
+		t.Fatalf("metacharacter binary ran: %+v", res)
+	}
+}
+
+func TestValidProgramAllowsADoubleDotInTheName(t *testing.T) {
+	if err := ValidProgram("my..tool"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidProgram("foo/../../bin"); err == nil {
+		t.Fatal("a .. segment was accepted")
 	}
 }
 

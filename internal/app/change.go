@@ -31,6 +31,9 @@ func runChange(command, from, to, work string) error {
 			return fmt.Errorf("change command must be an absolute path or a name on PATH")
 		}
 	}
+	if err := sandbox.ValidProgram(bin); err != nil {
+		return fmt.Errorf("change command must be an absolute path or a name on PATH")
+	}
 	args := make([]string, 0, len(fields)+1)
 	sawPlaceholder := false
 	for _, f := range fields[1:] {

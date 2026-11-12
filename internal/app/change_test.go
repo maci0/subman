@@ -61,7 +61,10 @@ func TestRunChangePathForm(t *testing.T) {
 		t.Fatal("an absolute path was rejected")
 	}
 	if !rejectedAsRelative(t, "foo/bar") {
-		t.Fatal("a relative path was accepted")
+		t.Fatal("relative path accepted")
+	}
+	if !rejectedAsRelative(t, "bad;id") {
+		t.Fatal("a metacharacter command was accepted")
 	}
 	// A backslash only separates on Windows. Elsewhere "foo\bar" is one name.
 	if rejectedAsRelative(t, `foo\bar`) != (filepath.Separator == '\\') {

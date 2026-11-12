@@ -218,7 +218,7 @@ func grokTokenURL(ctx context.Context) (string, error) {
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return "", err
 	}
-	if !strings.HasPrefix(doc.TokenEndpoint, "https://auth.x.ai/") {
+	if !allowedEndpoint(doc.TokenEndpoint, "https://auth.x.ai/") {
 		return "", fmt.Errorf("discovery named a token endpoint subman will not use")
 	}
 	return doc.TokenEndpoint, nil
@@ -274,8 +274,8 @@ func urlEncode(fields map[string]string) string {
 	return form.Encode()
 }
 
-func hostOf(url string) string {
-	rest := strings.TrimPrefix(url, "https://")
+func hostOf(raw string) string {
+	rest := strings.TrimPrefix(raw, "https://")
 	host, _, _ := strings.Cut(rest, "/")
 	return host
 }

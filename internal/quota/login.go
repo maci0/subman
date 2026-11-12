@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/maci0/subman/internal/model"
@@ -174,20 +175,29 @@ func startCodeLogin(flow codeFlow) (*Login, error) {
 		err  error
 	}
 	got := make(chan callback, 1)
+	// A local process can hit the callback port for as long as the sign-in
+	// stays open. Past this many requests the listener stops answering, so
+	// it cannot be held open until the sign-in times out.
+	var hits atomic.Int32
 	mux := http.NewServeMux()
 	mux.HandleFunc(flow.path, func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		// A request without the state this sign-in issued is not its browser:
 		// another page or a local process guessing the port. It is refused
-		// and does not end the sign-in.
+		// and does not end the sign-in, and it does not count toward the
+		// cap below, so stray requests cannot crowd out the real browser.
 		if q.Get("state") != state {
 			http.Error(w, "This is not the sign-in subman started.", http.StatusBadRequest)
+			return
+		}
+		if hits.Add(1) > 8 {
+			http.Error(w, "Too many requests on this sign-in.", http.StatusTooManyRequests)
 			return
 		}
 		var res callback
 		switch {
 		case q.Get("error") != "":
-			res.err = fmt.Errorf("the provider refused the sign-in: %s", q.Get("error"))
+			res.err = fmt.Errorf("the provider refused the sign-in: %s", oauthErrorCode(q.Get("error")))
 		case q.Get("code") == "":
 			res.err = errors.New("the browser came back with no code")
 		default:
@@ -287,6 +297,55 @@ func startCodeLogin(flow codeFlow) (*Login, error) {
 			<-served
 		},
 	}, nil
+}
+
+// oauthErrorCode keeps only an OAuth error token. Anything else came from
+// a local request, not the provider, and is not repeated to the operator.
+func oauthErrorCode(s string) string {
+	if s == "" || len(s) > 64 {
+		return "unknown"
+	}
+	for _, c := range s {
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '_':
+		default:
+			return "unknown"
+		}
+	}
+	return s
+}
+
+// browserPage reports whether raw is a page subman will open. The provider
+// names it, so it has to be https, with a host and no userinfo.
+func browserPage(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.User != nil || u.Scheme != "https" || u.Host == "" {
+		return false
+	}
+	return true
+}
+
+// allowedEndpoint reports whether raw is an https URL under prefix.
+//
+// prefix is a scheme and host with its trailing slash, such as
+// "https://auth.x.ai/". Comparing the strings is not enough: a host that
+// only begins with the trusted name ("auth.x.ai.evil.example") and a URL
+// whose userinfo is the trusted name both share the prefix, and both would
+// be a different host. The host must match exactly. A prefix whose host is
+// not a DNS name (a test server's) falls back to the plain prefix.
+func allowedEndpoint(raw, prefix string) bool {
+	if !strings.HasPrefix(raw, prefix) {
+		return false
+	}
+	scheme, host, ok := strings.Cut(strings.TrimSuffix(prefix, "/"), "://")
+	if !ok || strings.ContainsAny(host, ":@") || !strings.Contains(host, ".") {
+		return true
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.User != nil || u.Scheme != scheme || u.Host != host {
+		return false
+	}
+	return true
 }
 
 // postLogin sends one token or device request and decodes a JSON answer.
@@ -473,7 +532,7 @@ func startDeviceLogin(ctx context.Context, flow deviceFlow) (*Login, error) {
 	if err := json.NewDecoder(io.LimitReader(res.Body, maxLoginBody)).Decode(&discovery); err != nil {
 		return nil, fmt.Errorf("%s answered something that is not JSON", hostOf(flow.discoveryURL))
 	}
-	if !strings.HasPrefix(discovery.DeviceEndpoint, flow.endpointPrefix) || !strings.HasPrefix(discovery.TokenEndpoint, flow.endpointPrefix) {
+	if !allowedEndpoint(discovery.DeviceEndpoint, flow.endpointPrefix) || !allowedEndpoint(discovery.TokenEndpoint, flow.endpointPrefix) {
 		return nil, errors.New("discovery named an endpoint subman will not use")
 	}
 
@@ -493,8 +552,11 @@ func startDeviceLogin(ctx context.Context, flow deviceFlow) (*Login, error) {
 		return nil, fmt.Errorf("%s answered an incomplete device code", hostOf(discovery.DeviceEndpoint))
 	}
 	page := device.URLComplete
-	if page == "" {
+	if !browserPage(page) {
 		page = device.URL
+	}
+	if !browserPage(page) {
+		return nil, fmt.Errorf("%s named a verification page subman will not open", hostOf(discovery.DeviceEndpoint))
 	}
 	interval := seconds(device.Interval)
 	if interval < flow.minPoll {

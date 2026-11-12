@@ -315,6 +315,48 @@ func TestDeviceLoginPollsUntilApproved(t *testing.T) {
 	}
 }
 
+func TestAllowedEndpoint(t *testing.T) {
+	const prefix = "https://auth.x.ai/"
+	if !allowedEndpoint("https://auth.x.ai/oauth/token", prefix) {
+		t.Fatal("the token endpoint was refused")
+	}
+	// Each of these shares the prefix with the trusted endpoint and names a
+	// different host, so a prefix check would send the device code there.
+	for _, bad := range []string{
+		"https://auth.x.ai.evil.example/token",
+		"https://evil.example@auth.x.ai/token",
+		"http://auth.x.ai/token",
+		"https://auth.x.ai.evil.example",
+	} {
+		if allowedEndpoint(bad, prefix) {
+			t.Fatalf("accepted %s", bad)
+		}
+	}
+	// A test server's address is not a DNS name, so the prefix stands.
+	if !allowedEndpoint("http://127.0.0.1:1234/token", "http://127.0.0.1:1234/") {
+		t.Fatal("local test endpoint refused")
+	}
+}
+
+func TestBrowserPageAndErrorCode(t *testing.T) {
+	if !browserPage("https://example.test/device?user_code=ABCD-1234") {
+		t.Fatal("the verification page was refused")
+	}
+	for _, bad := range []string{
+		"http://example.test/device",
+		"https://user:pass@example.test/device",
+		"javascript:alert(1)",
+		"https:///device",
+	} {
+		if browserPage(bad) {
+			t.Fatalf("accepted %s", bad)
+		}
+	}
+	if oauthErrorCode("access_denied") != "access_denied" || oauthErrorCode("nope<script>") != "unknown" {
+		t.Fatal("error code filter")
+	}
+}
+
 func TestStartLoginRefusesAntigravity(t *testing.T) {
 	if _, err := StartLogin(context.Background(), "antigravity"); err != ErrNoLogin {
 		t.Fatal(err)

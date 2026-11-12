@@ -99,8 +99,24 @@ func TestTrustedAndRepo(t *testing.T) {
 	if trustedURL("http://github.com/x") || trustedURL("https://example.com/x") {
 		t.Fatal("untrusted accepted")
 	}
+	// A prefix check would accept all of these: the host only starts with
+	// a trusted name, or the trusted name is the userinfo.
+	for _, bad := range []string{
+		"https://github.com.evil.example/maci0/subman/releases/download/v0.2.0/a",
+		"https://release-assets.github.com.evil.example/a",
+		"https://evil.example@github.com/maci0/subman/a",
+		"https://github.com/maci0/subman/a?x",
+		"https://github.com/maci0/subman/a#x",
+	} {
+		if trustedURL(bad) {
+			t.Fatalf("untrusted accepted: %s", bad)
+		}
+	}
 	if !trustedURL("https://github.com/maci0/subman/releases/download/v0.2.0/a") {
 		t.Fatal("github rejected")
+	}
+	if !trustedURL("https://release-assets.github.com/github-production-release-asset/1") {
+		t.Fatal("release asset host rejected")
 	}
 	if validRepo("../x") || validRepo("a/b/c") || validRepo(".hidden/subman") || validRepo("maci0/-subman") || !validRepo("maci0/subman") {
 		t.Fatal("repo check")
