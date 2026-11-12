@@ -25,6 +25,9 @@ jobs:
       # The root package embeds frontend/dist, which only the build job makes.
       # GOTOOLCHAIN=local keeps the go.mod version this step installed: a go
       # line or a toolchain line in a dependency must not fetch another one.
+      - run: go vet ./internal/... ./cmd/...
+        env:
+          GOTOOLCHAIN: local
       - run: go test ./internal/... ./cmd/...
         env:
           GOTOOLCHAIN: local
