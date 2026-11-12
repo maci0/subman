@@ -3,11 +3,12 @@ module github.com/maci0/subman
 go 1.27.3
 
 require (
-	github.com/godbus/dbus/v5 v5.1.0
+	github.com/godbus/dbus/v5 v5.2.4
 	github.com/wailsapp/wails/v2 v2.12.0
 	golang.org/x/mod v0.32.0
 	golang.org/x/sys v0.31.0
 	golang.org/x/term v0.30.0
+	golang.org/x/text v0.22.0
 )
 
 require (
@@ -36,5 +37,4 @@ require (
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/net v0.35.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
 )
