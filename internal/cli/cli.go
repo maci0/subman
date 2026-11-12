@@ -24,13 +24,16 @@ import (
 	"github.com/maci0/subman/internal/sandbox"
 	"github.com/maci0/subman/internal/store"
 	"github.com/maci0/subman/internal/update"
+	"github.com/maci0/subman/internal/version"
 	"golang.org/x/term"
 )
 
 const specVersion = "0.3"
 
-// Version is the release this binary reports.
-var Version = "0.1.2"
+// Version is the release this binary reports. main sets it from its own
+// version before Run, which a release build stamps with -X; left unset it
+// is dev, so the CLI cannot report a release this tree no longer is.
+var Version = version.Release
 
 // IO is where a run reads and writes. Tests pass buffers. A real run uses
 // the process streams, and Format auto then checks whether stdout is a TTY.

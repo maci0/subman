@@ -133,11 +133,16 @@ jobs:
           fi
           ver="${GITHUB_REF_NAME#v}"
           # -buildmode=pie is the default on windows and darwin and refused on
-          # neither; linux defaults to a fixed-address executable.
+          # neither; linux defaults to a fixed-address executable. Both
+          # binaries name the variable release and copy it into
+          # internal/version, which the CLI and the window read, so the one
+          # stamp covers every place a version is reported. wails.json only
+          # names the unstamped default, so it is not a second number to keep
+          # in step.
           if [ "${{ matrix.goos }}" = linux ]; then
-            args+=(-buildmode=pie -ldflags "-s -w -X main.version=${ver} -linkmode=external -extldflags=-Wl,-z,relro,-z,now")
+            args+=(-buildmode=pie -ldflags "-s -w -X main.release=${ver} -linkmode=external -extldflags=-Wl,-z,relro,-z,now")
           else
-            args+=(-buildmode=pie -ldflags "-s -w -X main.version=${ver}")
+            args+=(-buildmode=pie -ldflags "-s -w -X main.release=${ver}")
           fi
           go build -buildvcs=false -trimpath \
             "${args[@]}" -o "${{ matrix.asset }}" .

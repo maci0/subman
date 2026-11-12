@@ -458,3 +458,9 @@ Verified: `go test ./internal/cli/` (pass), `gofmt`, `go vet ./internal/cli/`, a
 ## 2026-11-13 dependency updates
 
 `.github/dependabot.yml` watched only `github-actions`, so a new release of a Go module or a frontend package never opened a pull request. It now also watches the `gomod` ecosystem at `/` and the `bun` ecosystem at `/frontend`, weekly, with the `build` commit prefix. The `github-actions` entry is unchanged.
+
+## 2026-11-12 one release number
+
+The release number was written out in five places: `main.go`, `cmd/subman/main.go`, `internal/cli`, `internal/app`, and `wails.json`, and the release workflow stamped only `main.version`. The CLI binary sets `cli.Version` from its own copy before anything reads it, and the window reads `app.Version` while drawing the overview, so a tagged build kept reporting 0.1.1 from both after that tag was no longer the tree. `internal/version.Release` is now the only declaration, and both binaries copy their stamped `main.release` into it before they serve a request. An unstamped build reports `dev`, which the update check already refuses to compare, so it cannot claim to be a release. `wails.json` names that same default; the workflow does not read it.
+
+Verified: `go test ./internal/version/ ./internal/cli/ ./internal/app/ ./cmd/subman/`, `gofmt`, `go vet` on those packages, and `go build` of `./cmd/subman` with `-X main.release` set, which then prints that version. The window package was not built: it embeds `frontend/dist`. Not verified: the release workflow has not been run from this change.

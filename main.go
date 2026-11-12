@@ -11,6 +11,7 @@ import (
 	"github.com/maci0/subman/internal/desktop"
 	"github.com/maci0/subman/internal/sandbox"
 	"github.com/maci0/subman/internal/store"
+	"github.com/maci0/subman/internal/version"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -20,8 +21,11 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-// version is the release this binary reports. A tag drops the leading v.
-var version = "0.1.2"
+// release is the release this binary reports. A tag drops the leading v.
+// The default is what an unstamped build reports; the release workflow
+// overrides it with -X main.release, and the same value is copied into
+// version.Release so the CLI and the window report it too.
+var release = "dev"
 
 // wantsCLI reports whether the arguments are a command rather than a
 // request to open the window. The command line follows CLI Spec v0.3.
@@ -33,8 +37,9 @@ func main() {
 	if sandbox.MaybeReexec(os.Args) {
 		return
 	}
+	version.Release = release
 	if wantsCLI(os.Args[1:]) {
-		cli.Version = version
+		cli.Version = release
 		os.Exit(cli.Run(os.Args[1:], cli.Std()))
 	}
 
@@ -46,7 +51,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	app.Version = version
+	app.Version = release
 	application := app.New(root)
 
 	err = wails.Run(&options.App{

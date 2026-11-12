@@ -23,11 +23,15 @@ import (
 	"github.com/maci0/subman/internal/sandbox"
 	"github.com/maci0/subman/internal/store"
 	"github.com/maci0/subman/internal/update"
+	"github.com/maci0/subman/internal/version"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// Version is set from main.
-var Version = "0.1.2"
+// Version is the release the window reports. main sets it from its own
+// version before the window opens, which a release build stamps with -X;
+// left unset it is dev, so the window cannot report a release this tree
+// no longer is.
+var Version = version.Release
 
 // App is the bound Wails object.
 type App struct {
