@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -60,6 +61,8 @@ func (a *App) overview() (model.Overview, error) {
 		return model.Overview{}, err
 	}
 	views := make([]model.AccountView, 0, len(accounts))
+	advice := []model.Advice{}
+	now := time.Now().UTC()
 	var latest time.Time
 	for _, acc := range accounts {
 		view, err := a.view(acc)
@@ -70,7 +73,9 @@ func (a *App) overview() (model.Overview, error) {
 			latest = view.Reading.PolledAt
 		}
 		views = append(views, view)
+		advice = append(advice, ladder.Advise(acc, view.Reading, now)...)
 	}
+	sort.SliceStable(advice, func(i, j int) bool { return advice[i].At.Before(advice[j].At) })
 	upd, err := a.root.Update()
 	if err != nil {
 		upd = model.UpdateStatus{Note: err.Error()}
@@ -95,6 +100,7 @@ func (a *App) overview() (model.Overview, error) {
 		SandboxNote: sup.Note,
 		Settings:    settings,
 		Problems:    problems,
+		Advice:      advice,
 	}, nil
 }
 
@@ -184,6 +190,15 @@ func (a *App) StoreReading(acc model.Account, reading model.Reading) error {
 			fmt.Fprintln(os.Stderr, "subman: notification not shown:", err)
 		}
 	}
+	if settings.Notify && reading.OK {
+		for _, r := range expiring(before, reading, reading.PolledAt) {
+			title := fmt.Sprintf("%s: a banked reset expires %s", acc.Name, r.ExpiresAt.Local().Format("Mon 2 Jan 15:04"))
+			body := "Use it before then. A reset is only worth using on the highest tier."
+			if err := desktop.Notify(title, body); err != nil && !errors.Is(err, desktop.ErrUnsupported) {
+				fmt.Fprintln(os.Stderr, "subman: notification not shown:", err)
+			}
+		}
+	}
 	return nil
 }
 
@@ -199,18 +214,19 @@ func (a *App) adopt(acc model.Account, reading model.Reading) error {
 		acc.TierID = reading.TierID
 		changed = true
 	}
-	for _, date := range []struct {
-		stated string
-		field  **time.Time
-	}{{reading.ActivatedAt, &acc.ActivatedAt}, {reading.RenewalAt, &acc.RenewalAt}} {
-		// The reading's dates were written by this program as RFC 3339; one
-		// that does not parse is not adopted.
-		t, err := store.ParseTime(date.stated)
-		if err != nil || t == nil {
-			continue
-		}
-		if *date.field == nil || !(*date.field).Equal(*t) {
-			*date.field = t
+	// The reading's dates were written by this program as RFC 3339; one that
+	// does not parse is not adopted.
+	if t, err := store.ParseTime(reading.ActivatedAt); err == nil && t != nil && !sameTime(acc.ActivatedAt, t) {
+		acc.ActivatedAt = t
+		changed = true
+	}
+	// A stated renewal always wins. An estimated one only fills an empty
+	// date or replaces an earlier estimate: it never overwrites a date the
+	// operator typed or a provider stated.
+	if t, err := store.ParseTime(reading.RenewalAt); err == nil && t != nil {
+		mayAdopt := !reading.RenewalEstimated || acc.RenewalAt == nil || acc.RenewalEstimated
+		if mayAdopt && (!sameTime(acc.RenewalAt, t) || acc.RenewalEstimated != reading.RenewalEstimated) {
+			acc.RenewalAt, acc.RenewalEstimated = t, reading.RenewalEstimated
 			changed = true
 		}
 	}
@@ -218,6 +234,38 @@ func (a *App) adopt(acc model.Account, reading model.Reading) error {
 		return nil
 	}
 	return a.root.Save(acc)
+}
+
+// sameTime reports whether both are unset or both name the same instant.
+func sameTime(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.Equal(*b)
+}
+
+// expiring names the banked resets of next that are inside the warning
+// window now and were not yet inside it when prev was polled: the ones to
+// warn about once, as they cross into it.
+func expiring(prev *model.Reading, next model.Reading, now time.Time) []model.ResetCredit {
+	var out []model.ResetCredit
+	for _, r := range next.Credits.Resets {
+		if r.ExpiresAt == nil || !r.ExpiresAt.After(now) || r.ExpiresAt.Sub(now) > model.ResetExpiryWarning {
+			continue
+		}
+		warned := false
+		if prev != nil {
+			for _, old := range prev.Credits.Resets {
+				if old.ID == r.ID && old.ExpiresAt != nil && old.ExpiresAt.Sub(prev.PolledAt) <= model.ResetExpiryWarning {
+					warned = true
+				}
+			}
+		}
+		if !warned {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // viewOf loads the account again before drawing it, for callers whose copy
@@ -232,8 +280,8 @@ func (a *App) viewOf(id string) (model.AccountView, error) {
 
 // NewRequest fills what the operator may leave out when adding an account:
 // the name becomes the login's identity, or the provider's name when the
-// login names nobody, and the tier starts at the provider's lowest until the
-// first poll states the real one.
+// login names nobody. The tier stays empty, which reads as "not reported",
+// until a poll states it or the operator sets it.
 func NewRequest(req model.ImportRequest, identity string) model.ImportRequest {
 	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" {
@@ -244,9 +292,6 @@ func NewRequest(req model.ImportRequest, identity string) model.ImportRequest {
 	}
 	if len(req.Name) > model.MaxNameLen {
 		req.Name = req.Name[:model.MaxNameLen]
-	}
-	if tiers := model.Tiers(req.Provider); req.TierID == "" && len(tiers) > 0 {
-		req.TierID = tiers[0].ID
 	}
 	return req
 }
@@ -535,7 +580,7 @@ func (a *App) UpdateAccount(acc model.Account) (model.AccountView, error) {
 	switch {
 	case acc.Name == "" || len(acc.Name) > model.MaxNameLen:
 		return model.AccountView{}, fmt.Errorf("%w: name must be 1 to %d characters", ErrInvalid, model.MaxNameLen)
-	case !model.KnownTier(current.Provider, acc.TierID):
+	case acc.TierID != "" && !model.KnownTier(current.Provider, acc.TierID):
 		return model.AccountView{}, fmt.Errorf("%w: %s has no tier %q", ErrInvalid, current.Provider, acc.TierID)
 	// Written so that NaN, which compares false to everything, is refused too.
 	case !(acc.UsageThreshold >= 0 && acc.UsageThreshold <= 100):
@@ -545,6 +590,10 @@ func (a *App) UpdateAccount(acc model.Account) (model.AccountView, error) {
 	current.Name = acc.Name
 	current.TierID = acc.TierID
 	current.ActivatedAt = acc.ActivatedAt
+	// A renewal the operator changed is theirs, not an estimate any more.
+	if !sameTime(current.RenewalAt, acc.RenewalAt) {
+		current.RenewalEstimated = false
+	}
 	current.RenewalAt = acc.RenewalAt
 	current.Ladder = acc.Ladder
 	current.ChangeCommand = acc.ChangeCommand

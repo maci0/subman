@@ -295,9 +295,6 @@ func parseGrok(obj map[string]any, now time.Time) model.Reading {
 		r.Plan = trimLabel(tier)
 		r.TierID = matchTier(model.ProviderGrok, r.Plan)
 	}
-	if end := isoTime(cfg["billingPeriodEnd"]); end != nil {
-		r.RenewalAt = end.Format(time.RFC3339)
-	}
 	if w, ok := grokPeriod(cfg, now); ok {
 		r.Windows = append(r.Windows, w)
 	}
@@ -312,6 +309,18 @@ func parseGrok(obj map[string]any, now time.Time) model.Reading {
 		r.Windows = append(r.Windows, model.Window{
 			Label: "Credits", Util: &clamped, ResetsAt: isoTime(cfg["billingPeriodEnd"]),
 		})
+	}
+	// Each product's share of the period, with the period's own reset.
+	if products, ok := cfg["productUsage"].([]any); ok {
+		for _, item := range products {
+			product := asMap(item)
+			name, pct := asString(product["product"]), finite(product["usagePercent"])
+			if name == "" || pct == nil || len(r.Windows) >= maxWindows {
+				continue
+			}
+			clamped := math.Min(100, math.Max(0, *pct))
+			r.Windows = append(r.Windows, model.Window{Label: trimLabel(name), Util: &clamped, ResetsAt: isoTime(cfg["billingPeriodEnd"])})
+		}
 	}
 	if bal := grokAmount(cfg["prepaidBalance"]); bal != nil {
 		r.Credits.Enabled = true

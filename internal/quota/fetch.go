@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	maxBody        = 4 << 20
-	claudeUA       = "claude-code/2.1.251"
-	codexUsageURL  = "https://chatgpt.com/backend-api/wham/usage"
+	maxBody  = 4 << 20
+	claudeUA = "claude-code/2.1.251"
+
 	grokBillingURL = "https://cli-chat-proxy.grok.com/v1/billing"
 	userAgent      = "subman/0.1"
 	defaultTimeout = 20 * time.Second
@@ -26,6 +26,9 @@ const (
 
 // claudeUsageURL is a var so a test can point it at a local server.
 var claudeUsageURL = "https://api.anthropic.com/api/oauth/usage"
+
+// codexUsageURL is a var so a test can point it at a local server.
+var codexUsageURL = "https://chatgpt.com/backend-api/wham/usage"
 
 // Fetch reads the account's own credential file and polls its provider.
 //
@@ -142,6 +145,7 @@ func fetchClaude(ctx context.Context, cred map[string]any, now time.Time) model.
 		return fail(fmt.Sprintf("http-%d", status), now)
 	}
 	r := Parse(model.ProviderClaude, body, now)
+	claudeProfile(ctx, token, &r, now)
 	if r.Plan == "" {
 		r.Plan = claudePlan(asString(oauth["subscriptionType"]), asString(oauth["rateLimitTier"]))
 		r.TierID = matchTier(model.ProviderClaude, r.Plan)
@@ -167,7 +171,11 @@ func fetchCodex(ctx context.Context, cred map[string]any, now time.Time) model.R
 	if status != 200 {
 		return fail(fmt.Sprintf("http-%d", status), now)
 	}
-	return Parse(model.ProviderCodex, body, now)
+	r := Parse(model.ProviderCodex, body, now)
+	if r.OK {
+		codexResets(ctx, token, headers, &r)
+	}
+	return r
 }
 
 func fetchGrok(ctx context.Context, cred map[string]any, now time.Time) model.Reading {

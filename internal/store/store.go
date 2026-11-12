@@ -190,7 +190,7 @@ func (r *Root) Import(req model.ImportRequest) (model.Account, error) {
 
 // CheckRequest reports what Create would refuse in req, apart from the
 // credential: an unknown provider, a name outside 1 to model.MaxNameLen
-// characters, a tier the provider does not have, or a date that does not
+// characters, a tier the provider does not have (none at all is fine), or a date that does not
 // parse. A sign-in calls it first, so a bad field fails before the browser
 // opens and not after.
 func CheckRequest(req model.ImportRequest) error {
@@ -200,7 +200,8 @@ func CheckRequest(req model.ImportRequest) error {
 	if name := strings.TrimSpace(req.Name); name == "" || len(name) > model.MaxNameLen {
 		return fmt.Errorf("name must be 1 to %d characters", model.MaxNameLen)
 	}
-	if !model.KnownTier(req.Provider, req.TierID) {
+	// An empty tier is "not known yet": the first good poll may state it.
+	if req.TierID != "" && !model.KnownTier(req.Provider, req.TierID) {
 		return fmt.Errorf("%s has no tier %q", req.Provider, req.TierID)
 	}
 	if _, err := ParseTime(req.ActivatedAt); err != nil {

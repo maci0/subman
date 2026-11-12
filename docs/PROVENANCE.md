@@ -280,3 +280,33 @@ No tag was pushed, so the release workflow, which runs on `v*` tags, has still n
 ## 2026-11-12 local install
 
 Asked to update the local install. `~/.local/bin/subman` was a build from 2026-11-11 16:51 with none of the later commands. It was copied to `~/.cache/subman/subman-before-2026-11-12`, and a `-trimpath -tags production,webkit2_41` build of this tree was moved into its place. From the installed binary: `subman version` prints 0.1.0, `accounts list` shows the Codex account with its detected renewal, and `accounts test` passed under Landlock with nothing beside the binary. The help line for `accounts add` still named `--name`, which is optional now; it names `--provider`.
+
+## 2026-11-12 real sign-ins, and what each provider really states
+
+Sign-in is verified end to end. The operator signed in from the window with two Claude accounts and two Grok accounts, and all four were stored and polled. That closes the open item from the earlier entries for Claude and Grok. Codex was not signed in again this way.
+
+Correction to the entry "the Add dialog asks for the provider only": it listed `TestStateDates` as run. The file was never written, because the command that created it stopped at an earlier step. It exists now and passes.
+
+Asked for, in this order: banked resets only on the highest tier; warnings about expiring resets; Claude shows "pro" for two subscriptions that are not Pro; Claude shows no renewal date; reset credit counts per account, not only in the header; the proposed next steps and their timing at the bottom.
+
+What the live payloads state, read from this machine's accounts with identifying strings redacted:
+
+- Claude `GET api.anthropic.com/api/oauth/usage` names no plan. `GET api.anthropic.com/api/oauth/profile` has `organization.plan_display_name` ("Ultra"), `rate_limit_tier` ("default_claude_max_20x"), `subscription_status`, and `subscription_created_at`. It has no renewal date. Neither payload has a reset credit.
+- Codex `GET chatgpt.com/backend-api/wham/rate-limit-reset-credits` answers `{"available_count": 0, "credits": [], "total_earned_count": 0, ...}` for this account. The item fields (`id`, `reset_type`, `status`, `granted_at`, `expires_at`, `title`) are from the Codex CLI's `backend-client/src/types.rs`, read this date.
+- Grok `/v1/billing?format=credits` has a weekly `currentPeriod` whose end is also `billingPeriodEnd`, and a `productUsage` list. Plain `/v1/billing` has a calendar-month `billingPeriodEnd`. Neither names a tier or a subscription renewal.
+
+Fixed:
+
+- "pro" was never stated by anyone. The account was created with the provider's lowest tier as a default and shown as fact. `NewRequest` no longer defaults the tier; an empty tier is "not reported". `claudeProfile` reads the real plan. After a poll both Claude accounts read Ultra.
+- The Grok renewal adopted in the earlier entry was the end of the weekly usage period, not a renewal. `parseGrok` no longer sets one, and the two dates it had written to this machine's Grok accounts were cleared with `accounts set --renewal ""`, as were their defaulted tiers.
+- Claude's renewal is estimated as the next monthly anniversary of `subscription_created_at` and carried as `renewalEstimated`. The window says "renews about". An estimate fills an empty date or replaces an earlier estimate and never a typed or stated one (`TestEstimatedRenewalNeverOverwritesARealOne`). An annual subscription would make it wrong, which is why it is marked.
+- `ladder.ShouldReset` requires the highest tier and a reset that applies, and `Decide` holds at the top while one is usable instead of dropping (`TestResetOnlyAtTheHighestTier`).
+- `codexResets` itemises banked resets. The board has a Resets column per account ("n/a" where the provider reports none), the account view lists each reset with its expiry, a reset inside `model.ResetExpiryWarning` (7 days) is marked, and a notification goes out once as it enters that window (`TestExpiringWarnsOnceAsACreditEntersTheWindow`).
+- `ladder.Advise` produces the next steps, shown at the bottom of the board and in each account (`TestAdvise`).
+- Grok's per-product usage is read as windows.
+
+Verified: `go test -race ./...`, `bun test`, `bun run build`, `vnu` (no errors), schema valid. From the installed binary on the real accounts: Claude Ultra on both, estimated renewals 2026-12-05 and 2026-11-16, activations from the profile; Codex Pro with its stated dates and 0 resets; Grok with three and two windows, no tier, no renewal.
+
+Not verified: an itemised reset with a real expiry (no account here has one), so the Resets column and the expiry warning were seen with sample data only. Reset credits are not redeemed by subman; the Codex consume endpoint is now known from the CLI source and is not called.
+
+Open question for the operator: they report the reset counts as wrong. The APIs above return 0 for Codex and nothing for Claude and Grok. Where a different number is shown to them was not established.

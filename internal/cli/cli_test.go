@@ -258,7 +258,7 @@ func TestAccountsAddSetRemove(t *testing.T) {
 	added := run(t, 0, "accounts", "add", "--name", "work", "--provider", "claude", "--credential", cred, "--renewal", "2026-12-01")
 	acc := added["account"].(map[string]any)
 	id := acc["id"].(string)
-	if acc["tierId"] != "pro" || acc["renewalAt"] != "2026-12-01T00:00:00Z" {
+	if acc["tierId"] != "" || acc["renewalAt"] != "2026-12-01T00:00:00Z" {
 		t.Fatal(acc)
 	}
 

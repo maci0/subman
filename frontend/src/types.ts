@@ -14,6 +14,8 @@ export interface Account {
   credentialFile: string;
   activatedAt?: string;
   renewalAt?: string;
+  /** True while renewalAt is an estimate adopted from a poll. */
+  renewalEstimated?: boolean;
   tierId: string;
   ladder: boolean;
   changeCommand?: string;
@@ -39,9 +41,13 @@ export interface Credits {
   unlimited: boolean;
   resetCount?: number;
   resetApplies?: number;
+  /** Each banked reset, when the provider itemises them. Soonest to expire first. */
+  resets?: ResetCredit[];
 }
 
 export interface Reading {
+  /** True when renewalAt was worked out from the subscription start, not stated. */
+  renewalEstimated?: boolean;
   ok: boolean;
   error?: string;
   stale: boolean;
@@ -110,6 +116,8 @@ export interface Overview {
   settings: Settings;
   /** Account directories that could not be loaded and are missing from accounts. */
   problems: string[];
+  /** Every account's proposed next steps, soonest first. */
+  advice: Advice[];
 }
 
 export interface ProbeResult {
@@ -152,4 +160,23 @@ export interface Settings {
 export interface LoginStart {
   url: string;
   userCode?: string;
+}
+
+/** One banked rate-limit reset. expiresAt is absent for one that does not expire. */
+export interface ResetCredit {
+  id: string;
+  type: string;
+  title?: string;
+  status?: string;
+  grantedAt?: string;
+  expiresAt?: string;
+}
+
+/** One proposed step toward spending every paid window in full, and when to take it. */
+export interface Advice {
+  accountId: string;
+  account: string;
+  at: string;
+  kind: "step" | "reset" | "drop" | "spend" | "expiring" | "renewal" | "login";
+  text: string;
 }

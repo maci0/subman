@@ -89,6 +89,9 @@ type Account struct {
 	// none of the usage endpoints return it.
 	ActivatedAt *time.Time `json:"activatedAt,omitempty"`
 	RenewalAt   *time.Time `json:"renewalAt,omitempty"`
+	// RenewalEstimated is true while RenewalAt is an estimate adopted from a
+	// poll. A date the operator types, or one a provider states, clears it.
+	RenewalEstimated bool `json:"renewalEstimated,omitempty"`
 
 	// TierID is the plan the operator says is active. A poll can correct
 	// it when the usage payload names a plan.
@@ -148,6 +151,8 @@ type Credits struct {
 	Unlimited    bool     `json:"unlimited"`
 	ResetCount   *int     `json:"resetCount,omitempty"`
 	ResetApplies *int     `json:"resetApplies,omitempty"`
+	// Resets lists each banked reset when the provider itemises them.
+	Resets []ResetCredit `json:"resets,omitempty"`
 }
 
 // Reading is one poll of one account.
@@ -165,6 +170,10 @@ type Reading struct {
 	// provider states them: in the usage payload or in the login itself.
 	RenewalAt   string `json:"renewalAt,omitempty"`
 	ActivatedAt string `json:"activatedAt,omitempty"`
+	// RenewalEstimated marks RenewalAt as worked out, not stated: the next
+	// monthly anniversary of the subscription start, for a provider that
+	// states when a subscription began and not when it renews.
+	RenewalEstimated bool `json:"renewalEstimated,omitempty"`
 }
 
 // PrimaryUtil is the fullest meter, which is what the ladder watches.
@@ -237,6 +246,8 @@ type Overview struct {
 	// Problems names each account directory that could not be loaded and
 	// is therefore missing from Accounts.
 	Problems []string `json:"problems"`
+	// Advice is every account's proposed next steps, soonest first.
+	Advice []Advice `json:"advice"`
 }
 
 // UpdateStatus is the last self-update check.
@@ -339,4 +350,47 @@ func (s Settings) Validate() error {
 		}
 	}
 	return nil
+}
+
+// ResetCredit is one banked rate-limit reset, as the provider lists it.
+type ResetCredit struct {
+	ID string `json:"id"`
+	// Type is the provider's own name for what the reset applies to.
+	Type      string     `json:"type"`
+	Title     string     `json:"title,omitempty"`
+	Status    string     `json:"status,omitempty"`
+	GrantedAt *time.Time `json:"grantedAt,omitempty"`
+	// ExpiresAt is nil for a reset that does not expire.
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
+}
+
+// ResetExpiryWarning is how long before a banked reset expires the window
+// starts warning about it.
+const ResetExpiryWarning = 7 * 24 * time.Hour
+
+// UsableResets is how many banked resets apply to the limit in the way: the
+// provider's applicable count when it gives one, else the total. Zero when
+// the reading reports no reset credits.
+func (c Credits) UsableResets() int {
+	if c.ResetApplies != nil {
+		return *c.ResetApplies
+	}
+	if c.ResetCount != nil {
+		return *c.ResetCount
+	}
+	return 0
+}
+
+// Advice is one proposed step toward spending every paid window in full,
+// and when to take it.
+type Advice struct {
+	AccountID string `json:"accountId"`
+	Account   string `json:"account"`
+	// At is when to act: now for a step that is due, else the moment the
+	// thing it is about happens (a window resets, a credit expires, a
+	// subscription renews).
+	At time.Time `json:"at"`
+	// Kind is step, reset, drop, spend, expiring, renewal, or login.
+	Kind string `json:"kind"`
+	Text string `json:"text"`
 }

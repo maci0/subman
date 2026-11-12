@@ -133,3 +133,36 @@ func TestHoldsUntilAPollAfterTheLastStep(t *testing.T) {
 		t.Fatalf("a poll after the step did not allow the next one: %+v", step)
 	}
 }
+
+// A banked reset is for the highest tier only. Below it the ladder steps up,
+// which resets the window and keeps the credit.
+func TestResetOnlyAtTheHighestTier(t *testing.T) {
+	a := acc()
+	a.AutoReset = true
+	two := 2
+	mid := reading(99, "max")
+	mid.Credits.ResetCount = &two
+	if ShouldReset(a, mid) {
+		t.Fatal("a reset was offered below the highest tier")
+	}
+	if _, step := Decide(Input{Account: a, Reading: mid}); step == nil || step.To != "ultra" {
+		t.Fatalf("below the top the ladder should step up, got %+v", step)
+	}
+	top := reading(99, "ultra")
+	top.Credits.ResetCount = &two
+	if !ShouldReset(a, top) {
+		t.Fatal("no reset at the highest tier")
+	}
+	if st, step := Decide(Input{Account: a, Reading: top}); step != nil || st.Phase == model.PhaseWaiting {
+		t.Fatalf("with a reset banked the ladder should hold at the top, got %+v %+v", st, step)
+	}
+	// A reset that does not apply to the limit in the way is not usable.
+	none := 0
+	top.Credits.ResetApplies = &none
+	if ShouldReset(a, top) {
+		t.Fatal("a reset that does not apply was offered")
+	}
+	if _, step := Decide(Input{Account: a, Reading: top}); step == nil || step.To != "pro" {
+		t.Fatalf("with no usable reset the ladder should drop, got %+v", step)
+	}
+}

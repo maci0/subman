@@ -21,7 +21,8 @@ The usage numbers come from the same endpoints the [quota widget](https://github
 - Polling when the window opens and on an interval you pick, and a desktop notification (Linux) when an account's fullest meter reaches its spend threshold.
 - A failed poll keeps the last good numbers and says they are old. An expired login is renewed on the next poll.
 - Ladder: off, unarmed (no change command), climbing, or waiting for renewal. Run ladder lists the plan changes that are due and asks before it runs them, each one is recorded, and a change never repeats on the reading that caused it.
-- Auto-reset toggle. When it is on and a credit is available at the threshold, the ladder note says so. The redeem call is not sent: Codex's consume endpoint is undocumented, and the other three have no equivalent subman can call.
+- Next steps at the bottom of the board: what to do with which account and when, to spend every paid window in full (step up, use a reset, drop, spend what is left before a window resets, be on the top tier at renewal).
+- Banked resets per account, by type, with a warning when one is about to expire. A reset is only used on the highest tier: below it, stepping up resets the window and keeps the reset. subman says when to use one and does not redeem it itself.
 - Test agent: runs `<agent> --version` under Landlock with the account's agent directory as `$HOME`.
 - A command line with the same reach: add, set, remove, poll, renew, test, and `ladder run`.
 - `subman update` checks GitHub releases and replaces the binary after `SHA256SUMS` matches.
@@ -34,7 +35,7 @@ Sign-in has been run up to each provider's login page, and no further: the appro
 
 Antigravity quotas come from `agy --print /usage`. That needs `agy` on `PATH` and a signed-in CLI. subman does not sign in to it or renew its token.
 
-Claude and Antigravity do not state activation or renewal dates anywhere subman reads, so those two are typed in Edit. Codex states both and Grok states the renewal; subman fills those in.
+Codex states its activation and renewal dates and subman fills them in. Claude states its plan and when the subscription began; the renewal shown for it is an estimate (the next monthly anniversary) and says so, so set the real date in Edit if yours differs. Grok and Antigravity state neither a tier nor a date.
 
 Notifications and the light or dark startup frame are Linux only.
 

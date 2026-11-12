@@ -244,7 +244,8 @@ func TestAddNamesFromTheLoginAndAdoptsWhatThePollStates(t *testing.T) {
 		t.Fatal(err)
 	}
 	acc := view.Account
-	if acc.Name != "dev@example.com" || acc.TierID != "pro" {
+	// The tier is not guessed: it stays empty until a poll states it.
+	if acc.Name != "dev@example.com" || acc.TierID != "" {
 		t.Fatalf("defaults: %+v", acc)
 	}
 	nameless, err := a.Add(model.ImportRequest{Provider: model.ProviderGrok}, []byte(`{}`))
@@ -261,7 +262,7 @@ func TestAddNamesFromTheLoginAndAdoptsWhatThePollStates(t *testing.T) {
 	if err := a.StoreReading(acc, model.Reading{TierID: "ultra", RenewalAt: "2026-12-13T00:00:00Z"}); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := root.Load(acc.ID); got.TierID != "pro" || !got.RenewalAt.Equal(typed) {
+	if got, _ := root.Load(acc.ID); got.TierID != "" || !got.RenewalAt.Equal(typed) {
 		t.Fatalf("a failed poll was adopted: %+v", got)
 	}
 	good := reading(true, 10)
@@ -281,5 +282,96 @@ func TestAddNamesFromTheLoginAndAdoptsWhatThePollStates(t *testing.T) {
 	}
 	if kept, _ := root.Load(acc.ID); kept.TierID != "max" || kept.RenewalAt == nil || kept.ActivatedAt == nil {
 		t.Fatalf("a silent poll cleared the account: %+v", kept)
+	}
+}
+
+// An estimated renewal fills an empty date and follows later estimates, and
+// it never overwrites a date the operator typed or a provider stated.
+func TestEstimatedRenewalNeverOverwritesARealOne(t *testing.T) {
+	root, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(root)
+	view, err := a.Add(model.ImportRequest{Provider: model.ProviderClaude}, []byte(`{"email":"dev@example.com"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	estimate := func(when string) model.Reading {
+		r := reading(true, 10)
+		r.RenewalAt, r.RenewalEstimated = when, true
+		return r
+	}
+	load := func() model.Account {
+		acc, err := root.Load(view.Account.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return acc
+	}
+	if err := a.StoreReading(load(), estimate("2026-12-05T00:00:00Z")); err != nil {
+		t.Fatal(err)
+	}
+	if acc := load(); acc.RenewalAt == nil || !acc.RenewalEstimated || acc.RenewalAt.Format(time.RFC3339) != "2026-12-05T00:00:00Z" {
+		t.Fatalf("an estimate did not fill the empty date: %+v", acc)
+	}
+	if err := a.StoreReading(load(), estimate("2027-01-05T00:00:00Z")); err != nil {
+		t.Fatal(err)
+	}
+	if acc := load(); acc.RenewalAt.Format(time.RFC3339) != "2027-01-05T00:00:00Z" {
+		t.Fatalf("a later estimate did not replace the earlier one: %+v", acc)
+	}
+	// The operator types a date in Edit.
+	acc := load()
+	typed := time.Date(2026, 12, 20, 0, 0, 0, 0, time.UTC)
+	acc.RenewalAt = &typed
+	if _, err := a.UpdateAccount(acc); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.StoreReading(load(), estimate("2027-02-05T00:00:00Z")); err != nil {
+		t.Fatal(err)
+	}
+	if acc := load(); acc.RenewalEstimated || !acc.RenewalAt.Equal(typed) {
+		t.Fatalf("an estimate overwrote a typed date: %+v", acc)
+	}
+	// A provider that states the date wins over everything.
+	stated := reading(true, 10)
+	stated.RenewalAt = "2026-12-13T00:00:00Z"
+	if err := a.StoreReading(load(), stated); err != nil {
+		t.Fatal(err)
+	}
+	if acc := load(); acc.RenewalEstimated || acc.RenewalAt.Format(time.RFC3339) != "2026-12-13T00:00:00Z" {
+		t.Fatalf("a stated date was not adopted: %+v", acc)
+	}
+}
+
+// A banked reset is warned about once: on the poll where it comes within
+// model.ResetExpiryWarning of expiring.
+func TestExpiringWarnsOnceAsACreditEntersTheWindow(t *testing.T) {
+	now := time.Date(2026, 11, 12, 0, 0, 0, 0, time.UTC)
+	at := func(d time.Duration) *time.Time { v := now.Add(d); return &v }
+	credits := func(polled time.Time) model.Reading {
+		r := model.Reading{OK: true, PolledAt: polled}
+		r.Credits.Resets = []model.ResetCredit{
+			{ID: "soon", ExpiresAt: at(3 * 24 * time.Hour)},
+			{ID: "later", ExpiresAt: at(30 * 24 * time.Hour)},
+			{ID: "never"},
+			{ID: "gone", ExpiresAt: at(-time.Hour)},
+		}
+		return r
+	}
+	next := credits(now)
+	if got := expiring(nil, next, now); len(got) != 1 || got[0].ID != "soon" {
+		t.Fatalf("first sight: %+v", got)
+	}
+	// Seen a day ago, when it was already inside the window: no second warning.
+	prev := credits(now.Add(-24 * time.Hour))
+	if got := expiring(&prev, next, now); len(got) != 0 {
+		t.Fatalf("warned twice: %+v", got)
+	}
+	// Seen ten days ago, when it was still outside: this poll is the crossing.
+	prev = credits(now.Add(-10 * 24 * time.Hour))
+	if got := expiring(&prev, next, now); len(got) != 1 || got[0].ID != "soon" {
+		t.Fatalf("crossing into the window: %+v", got)
 	}
 }

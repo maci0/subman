@@ -103,6 +103,13 @@ func Decide(in Input) (model.LadderState, *model.Step) {
 		}
 	}
 
+	// At the top with a reset banked: the reset refills this tier, so the
+	// ladder holds here instead of dropping.
+	if ShouldReset(in.Account, in.Reading) {
+		st.Phase = model.PhaseClimbing
+		st.Note = "highest tier is spent and a reset is banked; use the reset before dropping"
+		return st, nil
+	}
 	// Already at the top and spent: drop, then wait out the billing period.
 	if current.Rank >= highest.Rank && sameTier(current, tierID) {
 		st.Phase = model.PhaseWaiting
@@ -123,21 +130,45 @@ func Decide(in Input) (model.LadderState, *model.Step) {
 	return st, step(current.ID, next.ID, st.Note, in.Account.ChangeCommand)
 }
 
-// ShouldReset reports whether an automatic reset credit should be redeemed.
-// A reset is only offered when the account asked for it, a credit exists,
-// and the primary meter is at or past the threshold.
-func ShouldReset(acc model.Account, reading *model.Reading) bool {
-	if !acc.AutoReset || reading == nil || !reading.OK {
+// AtHighest reports whether the account is on the top tier of its provider.
+// The tier is the one a good reading states, else the one on the account.
+func AtHighest(acc model.Account, reading *model.Reading) bool {
+	tiers := model.Tiers(acc.Provider)
+	if len(tiers) == 0 {
 		return false
 	}
-	if reading.Credits.ResetCount == nil || *reading.Credits.ResetCount < 1 {
+	id := acc.TierID
+	if reading != nil && reading.OK && reading.TierID != "" {
+		id = reading.TierID
+	}
+	top := 0
+	for _, t := range tiers {
+		if t.Rank > top {
+			top = t.Rank
+		}
+	}
+	for _, t := range tiers {
+		if t.ID == id {
+			return t.Rank == top
+		}
+	}
+	return false
+}
+
+// ShouldReset reports whether a banked reset should be used now. A reset is
+// only for the highest tier: below it, stepping up a tier resets the window
+// and keeps the credit. So it takes all of: the account asked for it, it is
+// on the highest tier, a reset that applies is banked, and the fullest meter
+// is at or past the threshold.
+func ShouldReset(acc model.Account, reading *model.Reading) bool {
+	if !acc.AutoReset || reading == nil || !reading.OK || !AtHighest(acc, reading) {
+		return false
+	}
+	if reading.Credits.UsableResets() < 1 {
 		return false
 	}
 	util := reading.PrimaryUtil()
-	if util == nil || *util < acc.Threshold() {
-		return false
-	}
-	return true
+	return util != nil && *util >= acc.Threshold()
 }
 
 func step(from, to, reason, command string) *model.Step {

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "preact
 import { ArrowDown, ArrowLeft, ArrowUp, ChevronRight, CircleCheck, CircleX, FolderOpen, Pencil, Plus, RefreshCw, ShieldAlert, ShieldCheck, TriangleAlert, X } from "lucide-preact";
 import { api, onPolled, openExternal, whenBridge } from "./api";
 import { day, fromDay, num, pct, relative, shortDay, tone, when } from "./format";
-import type { Account, AccountView, HistoryEntry, ImportRequest, LoginStart, Overview, Phase, ProbeResult, Provider, ProviderInfo, Reading, Settings, Tier } from "./types";
+import type { Account, AccountView, Advice, HistoryEntry, ImportRequest, LoginStart, Overview, Phase, ProbeResult, Provider, ProviderInfo, Reading, ResetCredit, Settings, Tier } from "./types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -297,6 +297,7 @@ export function App() {
             key={selectedView.account.id}
             view={selectedView}
             accounts={overview?.accounts ?? []}
+            advice={(overview?.advice ?? []).filter((a) => a.accountId === selectedView.account.id)}
             busy={busy}
             probe={probe}
             onBack={() => show("")}
@@ -313,6 +314,7 @@ export function App() {
             polled={polled}
             folded={folded}
             focusId={lastViewed.current}
+            advice={overview.advice}
             onFold={(foldedProviders) => saveSettings({ foldedProviders })}
             onSelect={show}
             onEdit={openEdit}
@@ -454,7 +456,8 @@ function summarize(overview: Overview | null): string {
   const n = accounts.length;
   if (n === 0) return "no accounts";
   const resetBit = saw ? `${resets} reset credit${resets === 1 ? "" : "s"}` : "no reset credits reported";
-  return `${n} account${n === 1 ? "" : "s"}, ${resetBit}`;
+  const soon = accounts.reduce((sum, view) => sum + expiringSoon(view.reading).length, 0);
+  return `${n} account${n === 1 ? "" : "s"}, ${resetBit}${soon > 0 ? `, ${soon} expiring soon` : ""}`;
 }
 
 function ErrorLine({ message, onDismiss }: { message: string; onDismiss: () => void }) {
@@ -500,7 +503,7 @@ function Meter({ label, util, threshold }: { label: string; util: number | null 
 
 /** Every account in one table per provider, so accounts of one provider line up meter by meter. */
 function Board({
-  accounts, busy, polled, folded, focusId, onFold, onSelect, onEdit, onPoll,
+  accounts, advice, busy, polled, folded, focusId, onFold, onSelect, onEdit, onPoll,
 }: {
   accounts: AccountView[];
   busy: string;
@@ -509,6 +512,8 @@ function Board({
   onFold: (folded: Provider[]) => void;
   /** The account whose row takes focus when the board appears: the one just viewed. */
   focusId: string;
+  /** Every account's proposed next steps, soonest first. */
+  advice: Advice[];
   /** Accounts a running "Poll all" has already finished. */
   polled: ReadonlySet<string>;
   onSelect: (id: string) => void;
@@ -551,11 +556,12 @@ function Board({
             <table className="w-full table-fixed text-sm">
               <thead>
                 <tr className="text-left text-[13px] text-muted-foreground [&>th]:py-1.5 [&>th]:pr-5 [&>th]:font-normal">
-                  <th className="w-[21%] pl-2">Account</th>
-                  <th className="w-[15%]">Tier</th>
+                  <th className="w-[18%] pl-2">Account</th>
+                  <th className="w-[13%]">Tier</th>
                   {labels.map((label) => <th key={label} className="truncate" title={label}>{label}</th>)}
                   {labels.length === 0 ? <th>Usage</th> : null}
-                  <th className="w-[15%]">Ladder</th>
+                  <th className="w-[12%]">Resets</th>
+                  <th className="w-[13%]">Ladder</th>
                   <th className="w-[76px]"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
@@ -577,6 +583,7 @@ function Board({
           </details>
         );
       })}
+      <NextSteps advice={advice} onSelect={onSelect} />
     </div>
   );
 }
@@ -635,6 +642,7 @@ function BoardRow({
         );
       })}
       {labels.length === 0 ? <td className="text-muted-foreground">no meters reported</td> : null}
+      <td><ResetsCell reading={reading} /></td>
       <td>
         {view.next ? (
           <Badge className="max-w-full" title={view.next.reason}><span className="truncate">{labelOf(view.tiers, view.next.to)} is due</span></Badge>
@@ -642,7 +650,7 @@ function BoardRow({
           <Badge variant="secondary" className="max-w-full" title={PHASE_HELP[view.ladder.phase]}><span className="truncate">{phaseLabel(view.ladder.phase)}</span></Badge>
         )}
         {view.account.renewalAt ? (
-          <span className="mt-0.5 block truncate text-[13px] text-muted-foreground" title={when(view.account.renewalAt)}>renews {shortDay(view.account.renewalAt)}</span>
+          <span className="mt-0.5 block truncate text-[13px] text-muted-foreground" title={renewalTitle(view.account)}>renews {view.account.renewalEstimated ? "about " : ""}{shortDay(view.account.renewalAt)}</span>
         ) : null}
       </td>
       {/* The row opens the account; these two act in place. */}
@@ -685,9 +693,11 @@ function MiniLadder({ view }: { view: AccountView }) {
 }
 
 function Detail({
-  view, accounts, busy, onBack, onShow, onEdit, onPoll, onRenew, onTest, probe,
+  view, accounts, advice, busy, onBack, onShow, onEdit, onPoll, onRenew, onTest, probe,
 }: {
   view: AccountView;
+  /** This account's proposed next steps, soonest first. */
+  advice: Advice[];
   /** Every account, for the switcher. */
   accounts: AccountView[];
   busy: string;
@@ -742,7 +752,7 @@ function Detail({
           <Badge variant={view.ladder.phase === "acting" ? "default" : "secondary"} title={PHASE_HELP[view.ladder.phase]}>{phaseLabel(view.ladder.phase)}</Badge>
           {view.account.renewalAt ? (
             <Badge variant="outline" title={when(view.account.renewalAt)}>
-              renews {shortDay(view.account.renewalAt)}, {relative(view.account.renewalAt)}
+              renews {view.account.renewalEstimated ? "about " : ""}{shortDay(view.account.renewalAt)}, {relative(view.account.renewalAt)}
             </Badge>
           ) : null}
         </p>
@@ -751,6 +761,7 @@ function Detail({
       <div className={`mt-2 grid gap-x-14 gap-y-8 ${aside ? "min-[1100px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" : "max-w-3xl"}`}>
         <div className="flex min-w-0 flex-col gap-8">
           <Ladder view={view} threshold={threshold} onEdit={onEdit} />
+          <NextSteps advice={advice} />
 
           <section>
             <div className="mb-4 flex items-baseline justify-between">
@@ -794,6 +805,7 @@ function Detail({
               </>
             ) : null}
             {reading ? <Credits reading={reading} /> : null}
+            {reading ? <ResetList reading={reading} /> : null}
           </section>
         </div>
 
@@ -906,6 +918,106 @@ function History({ entries, tiers }: { entries: HistoryEntry[]; tiers: Tier[] })
   );
 }
 
+/** Mirrors model.ResetExpiryWarning: how long before a banked reset expires the window warns. */
+const RESET_EXPIRY_WARNING_MS = 7 * 24 * 60 * MINUTE_MS;
+
+/** The banked resets that expire within the warning window, soonest first. */
+function expiringSoon(reading: Reading | undefined): ResetCredit[] {
+  const now = Date.now();
+  return (reading?.credits.resets ?? []).filter((r) => {
+    if (!r.expiresAt) return false;
+    const left = new Date(r.expiresAt).getTime() - now;
+    return left > 0 && left <= RESET_EXPIRY_WARNING_MS;
+  });
+}
+
+function renewalTitle(acc: Account): string {
+  const at = when(acc.renewalAt);
+  return acc.renewalEstimated ? `${at}. Estimated: the provider states when the subscription began, not when it renews. Set the real date in Edit.` : at;
+}
+
+/** A board cell: this account's banked resets, or n/a when its provider reports none. */
+function ResetsCell({ reading }: { reading: Reading | undefined }) {
+  const c = reading?.credits;
+  if (!c || c.resetCount === undefined || c.resetCount === null) {
+    return <span className="text-muted-foreground" title="This provider's usage payload reports no reset credits">n/a</span>;
+  }
+  const soon = expiringSoon(reading);
+  const usable = c.resetApplies !== undefined && c.resetApplies !== null && c.resetApplies !== c.resetCount;
+  return (
+    <>
+      <span className="font-semibold">{c.resetCount}</span>
+      {usable ? <span className="text-[13px] text-muted-foreground"> ({c.resetApplies} usable)</span> : null}
+      {soon.length > 0 ? (
+        <span className="mt-0.5 flex items-center gap-1 text-[13px] text-warn" title={soon.map((r) => `${r.title || r.type}: ${when(r.expiresAt)}`).join("\n")}>
+          <TriangleAlert className="size-3.5 shrink-0" />
+          <span className="truncate">{soon.length === 1 ? "expires" : `${soon.length} expire`} {relative(soon[0]?.expiresAt)}</span>
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+/** Every banked reset by type, with when it expires. Ones inside the warning window are marked. */
+function ResetList({ reading }: { reading: Reading }) {
+  const resets = reading.credits.resets ?? [];
+  if (resets.length === 0) return null;
+  const soon = new Set(expiringSoon(reading).map((r) => r.id));
+  return (
+    <div className="mt-6">
+      <h4 className="mb-1 font-semibold">Banked resets</h4>
+      <ul className="flex flex-col text-sm">
+        {resets.map((r) => (
+          <li key={r.id} className="grid grid-cols-[1fr_auto] items-baseline gap-4 border-t py-1.5">
+            <span>
+              {r.title || r.type}
+              {r.title && r.type ? <span className="text-[13px] text-muted-foreground"> ({r.type})</span> : null}
+            </span>
+            {r.expiresAt ? (
+              <span className={`flex items-center gap-1 text-[13px] ${soon.has(r.id) ? "text-warn" : "text-muted-foreground"}`} title={when(r.expiresAt)}>
+                {soon.has(r.id) ? <TriangleAlert className="size-3.5" /> : null}
+                expires {relative(r.expiresAt)}
+              </span>
+            ) : (
+              <span className="text-[13px] text-muted-foreground">does not expire</span>
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-[13px] text-muted-foreground">A reset is only used on the highest tier. Below it, stepping up a tier resets the window and keeps the reset.</p>
+    </div>
+  );
+}
+
+/**
+ * The proposed next steps, soonest first: what to do with which account and
+ * when, to spend every paid window in full. onSelect opens an account; it is
+ * left out where the list is already for one account.
+ */
+function NextSteps({ advice, onSelect }: { advice: Advice[]; onSelect?: (id: string) => void }) {
+  if (advice.length === 0) return null;
+  const now = Date.now();
+  return (
+    <section>
+      <h2 className="mb-1 text-lg font-bold [font-stretch:80%]">Next steps</h2>
+      <ol className="flex flex-col text-sm">
+        {advice.map((a) => {
+          const due = new Date(a.at).getTime() <= now + MINUTE_MS;
+          return (
+            <li key={`${a.accountId}:${a.kind}:${a.at}:${a.text}`} className={`grid items-baseline gap-4 border-t py-1.5 ${onSelect ? "grid-cols-[7rem_11rem_1fr]" : "grid-cols-[7rem_1fr]"}`}>
+              <span className={due ? "font-semibold text-primary" : "text-muted-foreground"} title={when(a.at)}>{due ? "now" : relative(a.at)}</span>
+              {onSelect ? (
+                <button className="truncate rounded-sm text-left font-semibold outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50" onClick={() => onSelect(a.accountId)}>{a.account}</button>
+              ) : null}
+              <span className={a.kind === "login" ? "text-destructive" : a.kind === "expiring" ? "text-warn" : ""}>{a.text}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
 function Credits({ reading }: { reading: Reading }) {
   const c = reading.credits;
   const rows: [string, string][] = [];
@@ -1012,6 +1124,7 @@ function SettingsSheet({
               <Field label="Name"><Input required value={form.name} onInput={(e) => setForm({ ...form, name: e.currentTarget.value })} /></Field>
               <Field label="Tier">
                 <NativeSelect value={form.tierId} onChange={(e) => setForm({ ...form, tierId: e.currentTarget.value })}>
+                  <NativeSelectOption value="">not reported</NativeSelectOption>
                   {view.tiers.map((t) => <NativeSelectOption key={t.id} value={t.id}>{t.label}</NativeSelectOption>)}
                 </NativeSelect>
               </Field>
@@ -1291,7 +1404,7 @@ function primary(reading: Reading | undefined): number | null {
 
 function planOf(view: AccountView): string {
   if (view.reading?.plan) return view.reading.plan;
-  return view.tiers.find((t) => t.id === view.account.tierId)?.label || view.account.tierId || "no plan";
+  return view.tiers.find((t) => t.id === view.account.tierId)?.label || "not reported";
 }
 
 function labelOf(tiers: Tier[], id: string): string {
