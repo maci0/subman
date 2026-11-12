@@ -41,4 +41,4 @@ The CLI Spec v0.3 contract lives in `internal/cli`. `schema` is the document, an
 
 ## Gate
 
-`go test ./...`, `bun test` and `bun run build` (type-check, then bundle) in `frontend/`, `vnu --format text` on `frontend/dist/index.html`.
+`bun test` and `bun run build` (type-check, then bundle) in `frontend/` first, because `main.go` embeds `frontend/dist`; then `go test ./...`, `vnu --format text` on `frontend/dist/index.html`.

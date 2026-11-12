@@ -87,8 +87,8 @@ Every child runs under Landlock, the same mechanism gauntlet and microagent use:
 ## Development
 
 ```bash
+cd frontend && bun install && bun test && bun run build && cd ..   # first: main.go embeds frontend/dist
 go test ./...
-cd frontend && bun test && bun run build && cd ..
 vnu --format text frontend/dist/index.html
 ```
 

@@ -15,7 +15,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: go test ./...
+      # The root package embeds frontend/dist, which only the build job makes.
+      - run: go test ./internal/... ./cmd/...
 
   build:
     needs: test
