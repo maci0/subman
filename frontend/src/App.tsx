@@ -455,7 +455,7 @@ function ErrorLine({ message, onDismiss }: { message: string; onDismiss: () => v
 function Empty({ onAdd }: { onAdd: () => void }) {
   return (
     <div className="mt-12 max-w-form">
-      <h2 className="text-title font-bold tracking-tight">Nothing to watch yet</h2>
+      <h2 className="text-title font-bold tracking-title leading-title">Nothing to watch yet</h2>
       <p className="mt-3 leading-prose text-muted-foreground">
         Add a Claude, Codex, Grok, or Antigravity login. subman copies the credential into its own directory and reads the usage the vendor CLI already reads.
       </p>
