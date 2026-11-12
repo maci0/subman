@@ -482,8 +482,9 @@ func (a *App) awaitLogin(provider model.Provider, owner string) ([]byte, error) 
 }
 
 // Add stores credential as a new account and polls it. The name defaults to
-// the login's identity and the tier is left unset; the poll then
-// adopts the tier and dates the provider states. req.CredentialPath is not used.
+// the login's identity. The tier stays empty, shown as "not reported", until
+// a poll states one or the operator sets it; the poll then adopts the tier
+// and dates the provider states. req.CredentialPath is not used.
 func (a *App) Add(req model.ImportRequest, credential []byte) (model.AccountView, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -626,7 +627,9 @@ func (a *App) UpdateAccount(acc model.Account) (model.AccountView, error) {
 	current.TierID = acc.TierID
 	current.ActivatedAt = acc.ActivatedAt
 	// A renewal the operator changed is theirs, not an estimate any more.
-	if !sameTime(current.RenewalAt, acc.RenewalAt) {
+	// So is one they set again: the form sends the stored flag back, and the
+	// CLI clears it, so a false flag here is the operator's.
+	if !sameTime(current.RenewalAt, acc.RenewalAt) || !acc.RenewalEstimated {
 		current.RenewalEstimated = false
 	}
 	current.RenewalAt = acc.RenewalAt

@@ -82,7 +82,7 @@ var commands = []commandSpec{
 			flag("--name", "string", "Display name, up to 64 characters. Defaults to the login's email, or the provider's name."),
 			flag("--provider", "string", "claude, codex, grok, or antigravity. Required."),
 			flag("--credential", "string", "Absolute path of the provider CLI's login file. Omit to sign in through the browser (claude, codex, grok). Required for antigravity."),
-			flag("--tier", "string", "Paid tier id. Empty until a poll states it or this flag sets it."),
+			flag("--tier", "string", "Paid tier id. Empty, shown as \"not reported\", until a poll states one or this flag sets it. A good poll replaces it with the tier the provider states."),
 			flag("--activated", "string", "Activation day, YYYY-MM-DD or RFC 3339."),
 			flag("--renewal", "string", "Next billing day, YYYY-MM-DD or RFC 3339."),
 		},

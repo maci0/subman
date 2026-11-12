@@ -163,7 +163,10 @@ func accountsSet(root *store.Root, args []string, streams IO, format string) err
 			if name == "--activated" {
 				acc.ActivatedAt = t
 			} else {
+				// The operator typed this date, so it is no longer an estimate
+				// a poll worked out, even when the day is the same one.
 				acc.RenewalAt = t
+				acc.RenewalEstimated = false
 			}
 		case "--ladder", "--auto-reset":
 			on, perr := onOff(name, value)

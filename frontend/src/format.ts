@@ -45,8 +45,17 @@ export function fromDay(value: string): string | undefined {
     return undefined;
   }
   const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(typed);
+  // A bare day is local midnight. A time with no offset is local too, and one
+  // with an offset is absolute. Each is checked in the calendar it was read
+  // in: the UTC day of a local time is the day before or after wherever the
+  // zone is not UTC, so comparing the two rejects a real day or a pasted time.
   const t = parse(dateOnly ? `${typed}T00:00:00` : typed);
-  if (!t || day(t.toISOString()) !== typed.slice(0, 10)) {
+  if (!t) {
+    return undefined;
+  }
+  const absolute = /(?:Z|[+-]\d{2}:?\d{2})$/.test(typed);
+  const read = absolute ? t.toISOString().slice(0, 10) : day(`${typed.slice(0, 10)}T00:00:00`);
+  if (read !== typed.slice(0, 10)) {
     return undefined;
   }
   return dateOnly ? t.toISOString() : typed;
