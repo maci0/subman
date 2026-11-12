@@ -2,9 +2,9 @@
 
 One window for the Claude, Codex, Grok, and Antigravity subscriptions you already pay for. It shows what each one has left, when it renews, and how many reset credits are banked. When you arm it, it walks a subscription up its paid tiers as each one runs out, then parks at the cheapest tier until the next renewal.
 
-![Every account in one table per provider, with a meter per usage window](docs/img/board.png)
+![Every account in one table per provider, with a meter per usage window, banked resets, and the proposed next steps below](docs/img/board.png)
 
-![One account: the tier ladder, usage against the spend threshold, an agent test, and the plan changes so far](docs/img/account.png)
+![One account: the tier ladder, its next steps, usage against the spend threshold, banked resets with their expiry, an agent test, and the plan changes so far](docs/img/account.png)
 
 Both pictures are the real window drawn from sample data.
 

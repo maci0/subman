@@ -373,3 +373,11 @@ Changed:
 Verified in Chromium against the built frontend and sample data, both themes, 960x640, on the board, a stale failed account, and the Edit sheet: no text under 4.5:1 (3:1 for large text), no control under 24px, no horizontal scroll, every table labelled with column and row headers, a root font size of 200% gives 30px body and 26px fine text, no animation running during Poll all with reduced motion, no console errors. `TestOverviewCarriesWhatTheWindowWouldOtherwiseMirror`, `go vet ./...`, `go test -race ./...`, `bun test`, `bun run build`, `oxlint` (no warnings), `vnu` (no errors).
 
 Not verified: the real WebKitGTK window was not rebuilt or opened for this change, and no screen reader was run.
+
+## 2026-11-12 0.1.1 and new screenshots
+
+The operator asked to push the audit fixes, update the local install, release, and bring the README screenshots up to date.
+
+- The version is 0.1.1 in `main.go`, `cmd/subman/main.go`, `internal/cli`, `internal/app`, and `wails.json`. `v0.1.1` was tagged at that commit and pushed, which starts the release workflow.
+- `~/.local/bin/subman` is a `-trimpath -tags production,webkit2_41` build of that commit; the previous binary is at `~/.cache/subman/subman-before-0.1.1`. From the installed binary, `subman version` prints 0.1.1 and `accounts list` lists this machine's accounts.
+- `docs/img/board.png` and `docs/img/account.png` were retaken in Chromium from the built frontend against `.scratch/ui/mock.js` (sample data, light theme, 1280 wide, tall enough to show the whole view). They now show per-account resets, the expiry warning, next steps, and the banked reset list, none of which existed when the old ones were taken. The README captions name them.
