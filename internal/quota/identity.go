@@ -5,7 +5,26 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/unicode/norm"
 )
+
+// SameIdentity reports whether two logins name the same mailbox. An email is
+// compared in one form: trimmed, NFC, and case-folded without a locale, so
+// "José@x" and its NFD spelling, or "Dev@x" and "dev@x", are one login.
+// Anything else, a name or a subject, is compared exactly.
+func SameIdentity(a, b string) bool {
+	return foldIdentity(a) == foldIdentity(b)
+}
+
+func foldIdentity(s string) string {
+	s = strings.TrimSpace(norm.NFC.String(s))
+	if strings.Count(s, "@") != 1 {
+		return s
+	}
+	return cases.Fold().String(s)
+}
 
 // jwtClaims decodes the payload of a JWT without verifying it. Anything that
 // is not a three-part token with a JSON payload returns an empty map.

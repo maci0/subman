@@ -22,7 +22,13 @@ import (
 	"unicode/utf8"
 
 	"github.com/maci0/subman/internal/model"
+	"golang.org/x/text/cases"
 )
+
+// fold matches plan text case-insensitively without a locale. strings.ToLower
+// follows the default Unicode case map, which leaves "İ" (U+0130) as itself,
+// so a plan spelled that way would miss the ASCII tier it names.
+func fold(s string) string { return cases.Fold().String(s) }
 
 const maxWindows = 12
 
@@ -85,7 +91,7 @@ func parseClaude(obj map[string]any, now time.Time) model.Reading {
 // claudePlan maps the credential's subscription and tier strings onto the
 // names the website shows. max_20x is Ultra.
 func claudePlan(subscription, tier string) string {
-	s := strings.ToLower(subscription + " " + tier)
+	s := fold(subscription + " " + tier)
 	if strings.Contains(s, "ultra") || strings.Contains(s, "20x") || strings.Contains(s, "max_20") {
 		return "Ultra"
 	}
@@ -193,7 +199,7 @@ func parseCodex(obj map[string]any, now time.Time) model.Reading {
 				continue
 			}
 			if prefix != "" {
-				w.Label = prefix + ", " + strings.ToLower(w.Label)
+				w.Label = prefix + ", " + fold(w.Label)
 			}
 			r.Windows = append(r.Windows, w)
 		}
@@ -415,11 +421,11 @@ func parseAntigravity(obj map[string]any, now time.Time) model.Reading {
 // The highest rank wins, so "Pro Lite" does not collapse into "Pro" when
 // both are present, and "Ultra" beats "Max".
 func matchTier(p model.Provider, plan string) string {
-	hay := strings.ToLower(plan)
+	hay := fold(plan)
 	var best model.Tier
 	found := false
 	for _, t := range model.Tiers(p) {
-		if strings.Contains(hay, t.ID) || strings.Contains(hay, strings.ToLower(t.Label)) {
+		if strings.Contains(hay, fold(t.ID)) || strings.Contains(hay, fold(t.Label)) {
 			if !found || t.Rank > best.Rank || len(t.Label) > len(best.Label) {
 				best = t
 				found = true

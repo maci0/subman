@@ -489,7 +489,7 @@ func (a *App) CompleteRelogin(id string) (model.AccountView, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	before, after := identityOfFile(acc.CredentialFile), identityOf(credential)
-	if before != "" && after != "" && before != after {
+	if before != "" && after != "" && !quota.SameIdentity(before, after) {
 		// The two emails are the logins themselves. Naming them here would
 		// put them on the window's error line and in the CLI error envelope.
 		return model.AccountView{}, errors.New("that sign-in is a different login than this account stores; add it as its own account")

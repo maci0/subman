@@ -22,4 +22,10 @@ func TestOutputStringEndsOnARune(t *testing.T) {
 	if !strings.HasSuffix(text, "a") {
 		t.Fatalf("kept the split character: %q", text[len(text)-4:])
 	}
+
+	// 0xFF is not UTF-8. A child can write it, and keeping it would store a
+	// string that later readers reject or replace.
+	if got := outputString([]byte("caf\xffé")); got != "café" || !utf8.ValidString(got) {
+		t.Fatalf("invalid byte kept: %q", got)
+	}
 }

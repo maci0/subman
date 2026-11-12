@@ -28,3 +28,30 @@ func TestIdentity(t *testing.T) {
 		}
 	}
 }
+
+func TestSameIdentity(t *testing.T) {
+	// "é" as one code point, and the same letter as "e" plus a combining acute.
+	nfc, nfd := "Jos\u00e9@example.com", "Jose\u0301@example.com"
+	same := [][2]string{
+		{nfc, nfd},
+		{" " + nfc + " ", nfd},
+		{"Dev@Example.com", "dev@example.com"},
+		{"İ@example.com", "i\u0307@example.com"},
+	}
+	for _, pair := range same {
+		if !SameIdentity(pair[0], pair[1]) {
+			t.Errorf("%q and %q were not the same login", pair[0], pair[1])
+		}
+	}
+	different := [][2]string{
+		{"a@example.com", "b@example.com"},
+		{"Jose@example.com", nfc},
+		{"not-an-email", "Not-An-Email"},
+		{"", "a@example.com"},
+	}
+	for _, pair := range different {
+		if SameIdentity(pair[0], pair[1]) {
+			t.Errorf("%q and %q were the same login", pair[0], pair[1])
+		}
+	}
+}

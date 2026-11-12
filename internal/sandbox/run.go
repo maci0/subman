@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -94,6 +95,12 @@ func exitCode(err error) int {
 }
 
 func outputString(out []byte) string {
+	if !utf8.Valid(out) {
+		// A child can write any bytes. Dropping the bad ones here keeps
+		// every later reader, which stores and draws this as text, on valid
+		// UTF-8 instead of a replacement character standing in for a byte.
+		out = []byte(strings.ToValidUTF8(string(out), ""))
+	}
 	if len(out) <= maxOutput {
 		return string(out)
 	}

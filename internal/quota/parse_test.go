@@ -48,6 +48,11 @@ func TestParseClaudePlanFromCredentialFields(t *testing.T) {
 	if got := claudePlan("pro", "default_claude_pro"); got != "Pro" {
 		t.Fatal(got)
 	}
+	// "İ" (U+0130) is the capital of Turkish dotless i. The default case map
+	// lowercases it to itself, so a plan spelled with it must still match.
+	if got := matchTier(model.ProviderClaude, "İ pro"); got != "pro" {
+		t.Fatalf("dotted capital I: %q", got)
+	}
 }
 
 func TestParseCodexResetsAndWindows(t *testing.T) {
