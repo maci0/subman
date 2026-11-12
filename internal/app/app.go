@@ -668,8 +668,15 @@ func (a *App) RunLadder() (model.Overview, error) {
 		}
 		next, step := ladder.Decide(ladder.Input{Account: acc, Reading: rp, State: st, Now: now})
 		if step != nil {
-			err := applyStep(acc, *step)
-			entry := model.HistoryEntry{At: now, From: step.From, To: step.To}
+			// A reset step spends a banked reset; any other step runs the
+			// account's change command.
+			var err error
+			if step.Reset {
+				err = quota.RedeemReset(context.Background(), acc, step.CreditID)
+			} else {
+				err = applyStep(acc, *step)
+			}
+			entry := model.HistoryEntry{At: now, From: step.From, To: step.To, Reset: step.Reset}
 			if err != nil {
 				entry.Error = err.Error()
 			}
@@ -681,9 +688,11 @@ func (a *App) RunLadder() (model.Overview, error) {
 				// the same reading, so it is set before anything that can fail.
 				next.LastStep = now
 				next.LastError = ""
-				acc.TierID = step.To
-				if err := a.root.Save(acc); err != nil {
-					next.LastError = "the plan changed, but the new tier was not saved: " + err.Error()
+				if !step.Reset {
+					acc.TierID = step.To
+					if err := a.root.Save(acc); err != nil {
+						next.LastError = "the plan changed, but the new tier was not saved: " + err.Error()
+					}
 				}
 			}
 			// A history line that cannot be written must not lose the ladder
@@ -691,9 +700,6 @@ func (a *App) RunLadder() (model.Overview, error) {
 			if err := a.root.AppendHistory(acc.ID, entry); err != nil && next.LastError == "" {
 				next.LastError = "the plan change was not recorded in the history: " + err.Error()
 			}
-		}
-		if ladder.ShouldReset(acc, rp) {
-			next.Note = next.Note + " A reset credit is available and auto-reset is on; redeem it from the provider, subman does not post the redeem call."
 		}
 		if err := a.root.PutLadder(acc.ID, next); err != nil {
 			return model.Overview{}, err

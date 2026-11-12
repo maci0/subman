@@ -54,6 +54,12 @@ func Decide(in Input) (model.LadderState, *model.Step) {
 	st.TierID = tierID
 
 	if in.Account.ChangeCommand == "" {
+		// A banked reset needs no plan-change command, so it is still offered.
+		if reset := resetStep(in, tierID); reset != nil {
+			st.Phase = model.PhaseClimbing
+			st.Note = reset.Reason
+			return st, reset
+		}
 		st.Phase = model.PhaseUnarmed
 		st.Note = "no plan-change command is set, so the ladder will not act"
 		return st, nil
@@ -104,11 +110,11 @@ func Decide(in Input) (model.LadderState, *model.Step) {
 	}
 
 	// At the top with a reset banked: the reset refills this tier, so the
-	// ladder holds here instead of dropping.
-	if ShouldReset(in.Account, in.Reading) {
+	// ladder uses it instead of dropping.
+	if reset := resetStep(in, tierID); reset != nil {
 		st.Phase = model.PhaseClimbing
-		st.Note = "highest tier is spent and a reset is banked; use the reset before dropping"
-		return st, nil
+		st.Note = reset.Reason
+		return st, reset
 	}
 	// Already at the top and spent: drop, then wait out the billing period.
 	if current.Rank >= highest.Rank && sameTier(current, tierID) {
@@ -169,6 +175,25 @@ func ShouldReset(acc model.Account, reading *model.Reading) bool {
 	}
 	util := reading.PrimaryUtil()
 	return util != nil && *util >= acc.Threshold()
+}
+
+// resetStep is the step that uses a banked reset, or nil when none is due.
+// One is due when ShouldReset says so and the reading is newer than the
+// last step: the meter stays full until the next poll, and acting on the
+// same reading again would spend a second reset.
+func resetStep(in Input, tierID string) *model.Step {
+	if !ShouldReset(in.Account, in.Reading) {
+		return nil
+	}
+	if !in.State.LastStep.IsZero() && !in.Reading.PolledAt.After(in.State.LastStep) {
+		return nil
+	}
+	s := &model.Step{From: tierID, To: tierID, Reset: true, Reason: "highest tier is spent and a reset is banked; using the reset"}
+	// The soonest to expire is listed first, and is the one to spend.
+	if resets := in.Reading.Credits.Resets; len(resets) > 0 {
+		s.CreditID = resets[0].ID
+	}
+	return s
 }
 
 func step(from, to, reason, command string) *model.Step {

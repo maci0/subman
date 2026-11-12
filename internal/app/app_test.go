@@ -375,3 +375,60 @@ func TestExpiringWarnsOnceAsACreditEntersTheWindow(t *testing.T) {
 		t.Fatalf("crossing into the window: %+v", got)
 	}
 }
+
+// At the highest tier with auto-reset on and a reset banked, the ladder run
+// takes the reset path, with no change command set, and records it. The
+// login here holds no token, so the redeem stops before any network call.
+func TestRunLadderUsesABankedResetAtTheTop(t *testing.T) {
+	root, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := New(root)
+	view, err := a.Add(model.ImportRequest{Provider: model.ProviderCodex, Name: "codex", TierID: "pro"}, []byte(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	acc := view.Account
+	acc.Ladder, acc.AutoReset = true, true
+	if _, err := a.UpdateAccount(acc); err != nil {
+		t.Fatal(err)
+	}
+	one := 1
+	full := reading(true, 99)
+	full.TierID, full.PolledAt = "pro", time.Now().UTC()
+	full.Credits.ResetCount = &one
+	full.Credits.Resets = []model.ResetCredit{{ID: "credit-1", Type: "weekly"}}
+	if err := root.PutReading(acc.ID, full); err != nil {
+		t.Fatal(err)
+	}
+	// The overview offers the reset as the due step.
+	ov, err := a.Overview()
+	if err != nil || ov.Accounts[0].Next == nil || !ov.Accounts[0].Next.Reset || ov.Accounts[0].Next.CreditID != "credit-1" {
+		t.Fatalf("due step: %+v %v", ov.Accounts[0].Next, err)
+	}
+	ov, err = a.RunLadder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := ov.Accounts[0]
+	if len(got.History) != 1 || !got.History[0].Reset || got.History[0].From != "pro" || got.History[0].To != "pro" || got.History[0].Error == "" {
+		t.Fatalf("history %+v", got.History)
+	}
+	if got.Account.TierID != "pro" || got.Ladder.LastError == "" {
+		t.Fatalf("a failed reset changed the account or hid the error: %+v %+v", got.Account, got.Ladder)
+	}
+
+	// Below the top the same account steps up instead and no reset is offered.
+	acc.TierID = "plus"
+	full.TierID = "plus"
+	if _, err := a.UpdateAccount(acc); err != nil {
+		t.Fatal(err)
+	}
+	if err := root.PutReading(acc.ID, full); err != nil {
+		t.Fatal(err)
+	}
+	if ov, err := a.Overview(); err != nil || ov.Accounts[0].Next != nil {
+		t.Fatalf("below the top with no change command nothing is due, got %+v %v", ov.Accounts[0].Next, err)
+	}
+}

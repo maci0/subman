@@ -153,8 +153,20 @@ func TestResetOnlyAtTheHighestTier(t *testing.T) {
 	if !ShouldReset(a, top) {
 		t.Fatal("no reset at the highest tier")
 	}
-	if st, step := Decide(Input{Account: a, Reading: top}); step != nil || st.Phase == model.PhaseWaiting {
-		t.Fatalf("with a reset banked the ladder should hold at the top, got %+v %+v", st, step)
+	top.Credits.Resets = []model.ResetCredit{{ID: "soonest"}, {ID: "later"}}
+	if st, step := Decide(Input{Account: a, Reading: top}); step == nil || !step.Reset || step.From != "ultra" || step.To != "ultra" || step.CreditID != "soonest" || st.Phase == model.PhaseWaiting {
+		t.Fatalf("with a reset banked the ladder should use it at the top, got %+v %+v", st, step)
+	}
+	// A reset needs no plan-change command, and is not repeated on the same reading.
+	unarmed := a
+	unarmed.ChangeCommand = ""
+	if _, step := Decide(Input{Account: unarmed, Reading: top}); step == nil || !step.Reset {
+		t.Fatalf("an unarmed ladder should still use a reset, got %+v", step)
+	}
+	stepped := time.Date(2026, 11, 12, 12, 0, 0, 0, time.UTC)
+	top.PolledAt = stepped.Add(-time.Minute)
+	if _, step := Decide(Input{Account: a, Reading: top, State: model.LadderState{LastStep: stepped}}); step != nil {
+		t.Fatalf("a second reset was offered on the same reading: %+v", step)
 	}
 	// A reset that does not apply to the limit in the way is not usable.
 	none := 0

@@ -310,3 +310,17 @@ Verified: `go test -race ./...`, `bun test`, `bun run build`, `vnu` (no errors),
 Not verified: an itemised reset with a real expiry (no account here has one), so the Resets column and the expiry warning were seen with sample data only. Reset credits are not redeemed by subman; the Codex consume endpoint is now known from the CLI source and is not called.
 
 Open question for the operator: they report the reset counts as wrong. The APIs above return 0 for Codex and nothing for Claude and Grok. Where a different number is shown to them was not established.
+
+## 2026-11-12 the open items
+
+Asked to fix everything still open.
+
+Reset counts. The operator had called them wrong. Codex was read again three ways for this account: `wham/usage`, the same with `x-openai-codex-luna-reserve: 1`, and `wham/rate-limit-reset-credits`. All say 0 available, 0 applicable, 0 ever earned. Claude's and Grok's payloads carry no reset credit. No other number was found, so nothing was changed; the window shows what the providers return.
+
+Redemption, which the previous entries left out. With auto-reset on, a spent highest tier, and a usable reset, `ladder.Decide` now returns a step marked `Reset` (it needs no change command and is offered even to an unarmed ladder), and `RunLadder` spends it with `quota.RedeemReset`: `POST chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume` with a `redeem_request_id` and, when the resets are itemised, the `credit_id` of the one that expires first. Path, body, and answer codes are the Codex CLI's (`backend-client/src/client/rate_limit_resets.rs`, `types.rs`). It goes through the same confirmation as a plan change, is recorded in the history, and is not repeated on the reading that caused it. The note that told the operator to redeem by hand is gone.
+
+Verified: `TestRedeemReset`, `TestRunLadderUsesABankedResetAtTheTop`, the extended `TestResetOnlyAtTheHighestTier`, `go test -race ./...`, `bun test`, `bun run build`, `vnu` (no errors), schema valid. Against the live endpoint, for the Codex account with zero banked resets and guarded to run only then: the call answered 200 with `no_credit`, reported as "the provider has no banked reset for this account". A redeem that actually spends a reset has not been run; this machine has none to spend.
+
+Also closed: `LICENSE` is MIT, the licence of the sibling tools this one draws on (`quota-widget`, `microagent`, `toktop`), with the same copyright line as `quota-widget`. The empty `web/` directories and their two `.gitignore` lines are gone.
+
+Still open, and not fixable from here: Codex has not been signed in to through the window (its account came from a credential file); no reset with a real expiry has been seen.

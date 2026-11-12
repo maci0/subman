@@ -3,7 +3,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "preact
 import { ArrowDown, ArrowLeft, ArrowUp, ChevronRight, CircleCheck, CircleX, FolderOpen, Pencil, Plus, RefreshCw, ShieldAlert, ShieldCheck, TriangleAlert, X } from "lucide-preact";
 import { api, onPolled, openExternal, whenBridge } from "./api";
 import { day, fromDay, num, pct, relative, shortDay, tone, when } from "./format";
-import type { Account, AccountView, Advice, HistoryEntry, ImportRequest, LoginStart, Overview, Phase, ProbeResult, Provider, ProviderInfo, Reading, ResetCredit, Settings, Tier } from "./types";
+import type { Account, AccountView, Advice, HistoryEntry, ImportRequest, LoginStart, Overview, Phase, ProbeResult, Provider, ProviderInfo, Reading, ResetCredit, Settings, Step, Tier } from "./types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -391,22 +391,22 @@ export function App() {
       <AlertDialog open={confirmLadder} onOpenChange={setConfirmLadder}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{due.length > 0 ? `Run ${due.length} plan change${due.length === 1 ? "" : "s"}?` : "No plan change is due"}</AlertDialogTitle>
+            <AlertDialogTitle>{due.length > 0 ? `Run ${due.length} step${due.length === 1 ? "" : "s"}?` : "Nothing is due"}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               {due.length > 0 ? (
                 <div>
-                  <p>Each one runs that account's plan-change command now.</p>
+                  <p>A plan change runs that account's plan-change command. A reset spends one banked reset. Both happen now.</p>
                   <ul className="mt-3 flex max-h-60 flex-col gap-2 overflow-auto text-foreground">
                     {due.map((v) => (
                       <li key={v.account.id}>
-                        <span className="font-semibold">{v.account.name}</span>: {labelOf(v.tiers, v.next?.from ?? "")} to {labelOf(v.tiers, v.next?.to ?? "")}
+                        <span className="font-semibold">{v.account.name}</span>: {v.next ? stepLabel(v.tiers, v.next) : ""}
                         {v.next?.command ? <code className="mt-0.5 block font-mono text-xs break-all text-muted-foreground">{v.next.command}</code> : null}
                       </li>
                     ))}
                   </ul>
                 </div>
               ) : (
-                <p>Running the ladder now records where each account stands and changes no plan. A step becomes due when an account with the ladder on and a plan-change command reaches its spend threshold.</p>
+                <p>Running the ladder now records where each account stands and changes nothing. A plan change becomes due when an account with the ladder on and a plan-change command reaches its spend threshold. A reset becomes due on the highest tier, when that tier is spent and the account is set to use banked resets.</p>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -645,7 +645,7 @@ function BoardRow({
       <td><ResetsCell reading={reading} /></td>
       <td>
         {view.next ? (
-          <Badge className="max-w-full" title={view.next.reason}><span className="truncate">{labelOf(view.tiers, view.next.to)} is due</span></Badge>
+          <Badge className="max-w-full" title={view.next.reason}><span className="truncate">{view.next.reset ? "reset is due" : `${labelOf(view.tiers, view.next.to)} is due`}</span></Badge>
         ) : (
           <Badge variant="secondary" className="max-w-full" title={PHASE_HELP[view.ladder.phase]}><span className="truncate">{phaseLabel(view.ladder.phase)}</span></Badge>
         )}
@@ -879,7 +879,7 @@ function Ladder({ view, threshold, onEdit }: { view: AccountView; threshold: num
         <p className="text-muted-foreground">{view.ladder.note || "The ladder has not decided anything yet."}</p>
         {view.next ? (
           <p className="mt-1">
-            Next: {labelOf(view.tiers, view.next.from)} to {labelOf(view.tiers, view.next.to)}. {view.next.reason}
+            Next: {stepLabel(view.tiers, view.next)}. {view.next.reason}
           </p>
         ) : null}
         {view.ladder.lastError ? <p className="mt-1 break-words text-destructive">{view.ladder.lastError}</p> : null}
@@ -908,7 +908,7 @@ function History({ entries, tiers }: { entries: HistoryEntry[]; tiers: Tier[] })
           <li key={e.at} className="grid grid-cols-[9.5rem_1fr] gap-4 border-t py-1.5">
             <span className="text-muted-foreground">{when(e.at)}</span>
             <span>
-              {labelOf(tiers, e.from)} to {labelOf(tiers, e.to)}
+              {e.reset ? `Used a banked reset on ${labelOf(tiers, e.from)}` : `${labelOf(tiers, e.from)} to ${labelOf(tiers, e.to)}`}
               {e.error ? <span className="block break-words text-destructive">failed: {e.error}</span> : null}
             </span>
           </li>
@@ -1143,7 +1143,7 @@ function SettingsSheet({
               <Switch checked={form.ladder} onCheckedChange={(v) => setForm({ ...form, ladder: v })} />
             </Label>
             <Label className="justify-between rounded-md border px-3 py-2.5">
-              Use a reset credit when one is banked
+              Use a banked reset when the highest tier is spent
               <Switch checked={form.autoReset} onCheckedChange={(v) => setForm({ ...form, autoReset: v })} />
             </Label>
             <div className="mt-2 flex flex-col gap-3 border-t pt-4">
@@ -1405,6 +1405,11 @@ function primary(reading: Reading | undefined): number | null {
 function planOf(view: AccountView): string {
   if (view.reading?.plan) return view.reading.plan;
   return view.tiers.find((t) => t.id === view.account.tierId)?.label || "not reported";
+}
+
+/** A due step in words: a plan change from one tier to another, or a banked reset. */
+function stepLabel(tiers: Tier[], step: Step): string {
+  return step.reset ? `use a banked reset on ${labelOf(tiers, step.from)}` : `${labelOf(tiers, step.from)} to ${labelOf(tiers, step.to)}`;
 }
 
 function labelOf(tiers: Tier[], id: string): string {

@@ -22,7 +22,7 @@ The usage numbers come from the same endpoints the [quota widget](https://github
 - A failed poll keeps the last good numbers and says they are old. An expired login is renewed on the next poll.
 - Ladder: off, unarmed (no change command), climbing, or waiting for renewal. Run ladder lists the plan changes that are due and asks before it runs them, each one is recorded, and a change never repeats on the reading that caused it.
 - Next steps at the bottom of the board: what to do with which account and when, to spend every paid window in full (step up, use a reset, drop, spend what is left before a window resets, be on the top tier at renewal).
-- Banked resets per account, by type, with a warning when one is about to expire. A reset is only used on the highest tier: below it, stepping up resets the window and keeps the reset. subman says when to use one and does not redeem it itself.
+- Banked resets per account, by type, with a warning when one is about to expire. A reset is only used on the highest tier: below it, stepping up resets the window and keeps the reset. With "Use a banked reset" on, Run ladder lists the reset as a due step and spends it after you confirm. Only Codex reports banked resets and has a call to use one.
 - Test agent: runs `<agent> --version` under Landlock with the account's agent directory as `$HOME`.
 - A command line with the same reach: add, set, remove, poll, renew, test, and `ladder run`.
 - `subman update` checks GitHub releases and replaces the binary after `SHA256SUMS` matches.
@@ -93,6 +93,10 @@ vnu --format text frontend/dist/index.html
 ```
 
 Decisions and what was verified: [docs/PROVENANCE.md](docs/PROVENANCE.md).
+
+## License
+
+MIT. See [LICENSE](LICENSE).
 
 ## Disclaimer
 

@@ -214,12 +214,17 @@ type LadderState struct {
 	Cycles int `json:"cycles"`
 }
 
-// Step is one ladder move: which tier to ask for, and why.
+// Step is one ladder move: which tier to ask for, or a banked reset to use, and why.
 type Step struct {
 	From    string `json:"from"`
 	To      string `json:"to"`
 	Reason  string `json:"reason"`
 	Command string `json:"command,omitempty"`
+	// Reset marks a step that changes no plan: it uses a banked reset on
+	// the tier named in From and To. CreditID is the reset to use, when
+	// the provider itemises them.
+	Reset    bool   `json:"reset,omitempty"`
+	CreditID string `json:"creditId,omitempty"`
 }
 
 // AccountView is what the dashboard draws for one subscription.
@@ -304,6 +309,8 @@ type HistoryEntry struct {
 	From  string    `json:"from"`
 	To    string    `json:"to"`
 	Error string    `json:"error,omitempty"`
+	// Reset is true for a banked reset used on the tier in From and To.
+	Reset bool `json:"reset,omitempty"`
 }
 
 // KnownTier reports whether id is one of the provider's paid tiers.

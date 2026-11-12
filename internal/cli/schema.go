@@ -158,7 +158,7 @@ var commands = []commandSpec{
 		Errors: []string{"usage", "not_found", "io"},
 	},
 	{
-		Name: "ladder run", Description: "Run the plan-change command of every account whose step is due, and record the result. With --dry-run, list the due steps and run nothing.",
+		Name: "ladder run", Description: "Take every step that is due and record the result: run an account's plan-change command, or on the highest tier use a banked reset. With --dry-run, list the due steps and take none.",
 		Effects: "non_idempotent", Cardinality: "bounded",
 		Args: []any{flag("--dry-run", "boolean", "List what is due. Run no command and store nothing.")},
 		OutputFields: []any{
@@ -170,7 +170,7 @@ var commands = []commandSpec{
 				fld("tierId", "string", "Tier after this run."),
 				fld("note", "string", "Why the ladder holds or moves."),
 				fld("lastError", "string", "The last failed plan change, when one failed."),
-				fld("next", "object", "The step that is due: from, to, reason, command."),
+				fld("next", "object", "The step that is due: from, to, reason, command, and reset when it uses a banked reset."),
 			))),
 		},
 		Errors: []string{"usage", "io"},

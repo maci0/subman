@@ -275,7 +275,11 @@ func dispatchLadder(args []string, streams IO, format string) error {
 		for _, r := range rows {
 			line := fmt.Sprintf("%s  %-9s %-8s %s", r.ID, r.Phase, r.TierID, r.Note)
 			if r.Next != nil {
-				line += fmt.Sprintf("  [due: %s to %s]", r.Next.From, r.Next.To)
+				if r.Next.Reset {
+					line += "  [due: use a banked reset]"
+				} else {
+					line += fmt.Sprintf("  [due: %s to %s]", r.Next.From, r.Next.To)
+				}
 			}
 			if r.LastError != "" {
 				line += "  error: " + r.LastError

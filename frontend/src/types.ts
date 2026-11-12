@@ -76,6 +76,9 @@ export interface Step {
   to: string;
   reason: string;
   command?: string;
+  /** A step that changes no plan: it uses a banked reset on the tier in from and to. */
+  reset?: boolean;
+  creditId?: string;
 }
 
 export interface AccountView {
@@ -94,6 +97,8 @@ export interface HistoryEntry {
   from: string;
   to: string;
   error?: string;
+  /** True for a banked reset used on the tier in from and to. */
+  reset?: boolean;
 }
 
 export interface UpdateStatus {
