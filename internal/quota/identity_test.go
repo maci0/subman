@@ -21,6 +21,9 @@ func TestIdentity(t *testing.T) {
 		{"bad payload", map[string]any{"id_token": "h.!!!.s"}, ""},
 		{"payload not json", map[string]any{"id_token": "h." + base64.RawURLEncoding.EncodeToString([]byte("x")) + ".s"}, ""},
 		{"empty", map[string]any{}, ""},
+		// encoding/json keeps raw invalid UTF-8. It is not a name.
+		{"invalid utf-8 email", map[string]any{"email": "a@x\xff"}, ""},
+		{"invalid utf-8 entry", map[string]any{"entry": map[string]any{"email": "\xef"}}, ""},
 	}
 	for _, c := range cases {
 		if got := Identity(c.cred); got != c.want {

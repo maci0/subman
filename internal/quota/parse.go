@@ -471,6 +471,12 @@ func asMap(v any) map[string]any {
 
 func asString(v any) string {
 	s, _ := v.(string)
+	// A credential file or a vendor payload is untrusted JSON, and encoding/json
+	// accepts raw invalid UTF-8. Text copied into a name, a label, or a claim
+	// must be valid, so anything else reads as absent.
+	if !utf8.ValidString(s) {
+		return ""
+	}
 	return s
 }
 
