@@ -21,7 +21,7 @@ import (
 func Advise(acc model.Account, reading *model.Reading, now time.Time) []model.Advice {
 	var out []model.Advice
 	add := func(at time.Time, kind, text string) {
-		out = append(out, model.Advice{AccountID: acc.ID, Account: acc.Name, At: at, Kind: kind, Text: text})
+		out = append(out, model.Advice{AccountID: acc.ID, At: at, Kind: kind, Text: text})
 	}
 	if reading == nil {
 		return nil

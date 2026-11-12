@@ -52,8 +52,6 @@ export interface Reading {
   error?: string;
   stale: boolean;
   polledAt: string;
-  /** Who the credential copy is signed in as, when the file says. */
-  account?: string;
   plan?: string;
   tierId?: string;
   windows: WindowMeter[];
@@ -192,7 +190,6 @@ export interface ResetCredit {
 /** One proposed step toward spending every paid window in full, and when to take it. */
 export interface Advice {
   accountId: string;
-  account: string;
   at: string;
   kind: "step" | "reset" | "drop" | "spend" | "expiring" | "renewal" | "login";
   text: string;

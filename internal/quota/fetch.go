@@ -42,9 +42,10 @@ var codexUsageURL = "https://chatgpt.com/backend-api/wham/usage"
 // a rotated refresh token lives in the copy from then on.
 func Fetch(ctx context.Context, acc model.Account, now time.Time) model.Reading {
 	reading, cred := fetchRenewing(ctx, acc, now)
-	// The identity comes from the credential copy, so a failed poll still names the login.
+	// Dates come from the credential copy. The login's email does not: it
+	// already names the account, and copying it here would store it again
+	// in every reading.
 	if cred != nil {
-		reading.Account = Identity(cred)
 		stateDates(acc.Provider, cred, &reading, now)
 	}
 	return reading

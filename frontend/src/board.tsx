@@ -101,7 +101,7 @@ export function Board({
           </details>
         );
       })}
-      <NextSteps advice={advice} onSelect={onSelect} />
+      <NextSteps advice={advice} nameOf={(id) => accounts.find((v) => v.account.id === id)?.account.name ?? ""} onSelect={onSelect} />
     </div>
   );
 }
@@ -139,7 +139,7 @@ function BoardRow({
           className={`block text-micro ${failed ? "line-clamp-2 break-words" : "truncate"} ${failed ? "text-destructive" : reading?.stale ? "text-st-warn" : "text-muted-foreground"}`}
           title={failed ? reading.error : reading ? `polled ${when(reading.polledAt)}` : undefined}
         >
-          {failed ? `poll failed${reading.stale ? ", old numbers" : ""}${reading.error ? `: ${reading.error}` : ""}` : reading ? reading.account || `polled ${relative(reading.polledAt)}` : "never polled"}
+          {failed ? `poll failed${reading.stale ? ", old numbers" : ""}${reading.error ? `: ${reading.error}` : ""}` : reading ? `polled ${relative(reading.polledAt)}` : "never polled"}
         </span>
       </th>
       <td>

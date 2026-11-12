@@ -341,12 +341,10 @@ func exchangeClaude(ctx context.Context, flow codeFlow, code, state, verifier, r
 		RefreshToken string `json:"refresh_token"`
 		ExpiresIn    int    `json:"expires_in"`
 		Account      struct {
-			UUID  string `json:"uuid"`
 			Email string `json:"email_address"`
 		} `json:"account"`
 		Organization struct {
 			UUID string `json:"uuid"`
-			Name string `json:"name"`
 		} `json:"organization"`
 	}
 	if _, err := postLogin(ctx, flow.tokenURL, "application/json", claudeLoginAgent, strings.NewReader(string(request)), &tok); err != nil {
@@ -360,9 +358,7 @@ func exchangeClaude(ctx context.Context, flow codeFlow, code, state, verifier, r
 		"access_token":      tok.AccessToken,
 		"refresh_token":     tok.RefreshToken,
 		"email":             tok.Account.Email,
-		"account_uuid":      tok.Account.UUID,
 		"organization_uuid": tok.Organization.UUID,
-		"organization_name": tok.Organization.Name,
 		"expired":           expiry(tok.ExpiresIn),
 		"last_refresh":      time.Now().UTC().Format(time.RFC3339),
 	}, nil

@@ -182,7 +182,6 @@ type Reading struct {
 	PolledAt time.Time `json:"polledAt"`
 	Plan     string    `json:"plan,omitempty"`
 	TierID   string    `json:"tierId,omitempty"`
-	Account  string    `json:"account,omitempty"`
 	Windows  []Window  `json:"windows"`
 	Credits  Credits   `json:"credits"`
 	// RenewalAt and ActivatedAt are RFC 3339 instants, set only when the
@@ -424,7 +423,6 @@ func (c Credits) UsableResets() int {
 // and when to take it.
 type Advice struct {
 	AccountID string `json:"accountId"`
-	Account   string `json:"account"`
 	// At is when to act: now for a step that is due, else the moment the
 	// thing it is about happens (a window resets, a credit expires, a
 	// subscription renews).

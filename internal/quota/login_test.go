@@ -87,7 +87,7 @@ func TestClaudeLoginExchangesCodeWithPKCE(t *testing.T) {
 	if agent != claudeLoginAgent {
 		t.Fatalf("user agent %q", agent)
 	}
-	if cred["access_token"] != "at" || cred["refresh_token"] != "rt" || cred["email"] != "a@example.com" || cred["organization_name"] != "Org" || cred["type"] != "claude" {
+	if cred["access_token"] != "at" || cred["refresh_token"] != "rt" || cred["email"] != "a@example.com" || cred["organization_uuid"] != "o1" || cred["type"] != "claude" {
 		t.Fatalf("credential %v", cred)
 	}
 	// The file is one fetchClaude, renewClaude, and Identity read.

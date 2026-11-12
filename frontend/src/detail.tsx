@@ -71,7 +71,6 @@ export function Detail({
         </div>
         <p className="mt-2.5 flex flex-wrap items-center gap-2 text-muted-foreground">
           <span className="mr-1 text-foreground">{title(view.account.provider)} {planOf(view)}</span>
-          {reading?.account ? <span className="mr-1" title="The login subman stores for this account">{reading.account}</span> : null}
           <Badge variant={view.ladder.phase === "acting" ? "default" : "secondary"} title={PHASE_HELP[view.ladder.phase]}>{phaseLabel(view.ladder.phase)}</Badge>
           {view.account.renewalAt ? (
             <Badge variant="outline" title={when(view.account.renewalAt)}>

@@ -64,7 +64,7 @@ export function renewalTitle(acc: Account): string {
  * when, to spend every paid window in full. onSelect opens an account; it is
  * left out where the list is already for one account.
  */
-export function NextSteps({ advice, onSelect }: { advice: Advice[]; onSelect?: (id: string) => void }) {
+export function NextSteps({ advice, nameOf, onSelect }: { advice: Advice[]; nameOf?: (id: string) => string; onSelect?: (id: string) => void }) {
   if (advice.length === 0) return null;
   const now = Date.now();
   return (
@@ -77,7 +77,7 @@ export function NextSteps({ advice, onSelect }: { advice: Advice[]; onSelect?: (
             <li key={`${a.accountId}:${a.kind}:${a.at}:${a.text}`} className={`grid items-baseline gap-4 border-t py-1.5 ${onSelect ? "grid-cols-steps-account" : "grid-cols-steps"}`}>
               <span className={due ? "font-semibold text-accent" : "text-muted-foreground"} title={when(a.at)}>{due ? "now" : relative(a.at)}</span>
               {onSelect ? (
-                <button className="truncate rounded-chip py-0.5 text-left font-semibold outline-none hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring" title={a.account} onClick={() => onSelect(a.accountId)}>{a.account}</button>
+                <button className="truncate rounded-chip py-0.5 text-left font-semibold outline-none hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring" title={nameOf?.(a.accountId) || a.accountId} onClick={() => onSelect(a.accountId)}>{nameOf?.(a.accountId) || a.accountId}</button>
               ) : null}
               <span className={a.kind === "login" ? "text-destructive" : a.kind === "expiring" ? "text-st-warn" : ""}>{a.text}</span>
             </li>
