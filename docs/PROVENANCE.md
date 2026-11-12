@@ -266,3 +266,13 @@ The window shows a reset credit that does not apply to the limit in the way as "
 Verified: `TestCodexCapturesEveryLimitAndResetCredit`, `TestClaudeReadsEveryWeeklyBlock`, `go test -race ./...`, `bun test`, `bun run build`, `vnu` (no errors), schema valid.
 
 Not verified: a live payload with a non-null code review or additional limit, or an unavailable model. A live Claude or Grok payload was not available on this machine at the time; only the Codex account is signed in.
+
+## 2026-11-12 first push
+
+Asked to push to GitHub as a public repository. The directory was not a git repository until now. `git init -b main`, one commit, then `gh repo create maci0/subman --public --source . --push`: https://github.com/maci0/subman.
+
+Before the commit, the staged files were searched for email addresses, token-shaped strings, account ids, and attribution lines. The only hits were the dummy tokens in `internal/quota/*_test.go`.
+
+`.gitignore` had a bare `subman` line meant for the built binary, which also ignored the `cmd/subman` directory. It is `/subman` now, and `cmd/subman/main.go` is tracked.
+
+No tag was pushed, so the release workflow, which runs on `v*` tags, has still not run. The repository has no LICENSE file.
