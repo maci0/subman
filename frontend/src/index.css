@@ -1,0 +1,183 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/bricolage-grotesque/standard.css";
+
+/* Follows the system setting; the shadcn dark: variants read the same media query. */
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+:root {
+  color-scheme: light dark;
+  --radius: 0.5rem;
+  --background: oklch(0.975 0.008 200);
+  --foreground: oklch(0.24 0.035 215);
+  --card: oklch(0.955 0.012 205);
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.5 0.09 195);
+  --primary-foreground: oklch(0.98 0.01 200);
+  --secondary: oklch(0.92 0.018 210);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--secondary);
+  --muted-foreground: oklch(0.46 0.03 215);
+  --accent: var(--secondary);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.56 0.2 25);
+  --warn: oklch(0.52 0.13 60);
+  /* Meter and step fills; brighter than --warn, which has to read as text. */
+  --warn-fill: oklch(0.78 0.16 75);
+  --border: oklch(0.85 0.02 210);
+  --input: oklch(0.78 0.025 210);
+  --ring: var(--primary);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.2 0.03 215);
+    --foreground: oklch(0.96 0.01 200);
+    --card: oklch(0.235 0.033 215);
+    --primary: oklch(0.86 0.1 190);
+    --primary-foreground: oklch(0.22 0.04 215);
+    --secondary: oklch(0.29 0.035 215);
+    --muted-foreground: oklch(0.77 0.03 210);
+    --destructive: oklch(0.72 0.18 22);
+    --warn: oklch(0.84 0.14 80);
+    --warn-fill: var(--warn);
+    --border: oklch(0.36 0.035 215);
+    --input: oklch(0.42 0.035 215);
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-warn: var(--warn);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "DejaVu Sans Mono", monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 35%, transparent);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 99px;
+  }
+}
+
+/* A meter and the current ladder step read their colour from --tone. */
+@utility meter {
+  position: relative;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--secondary);
+}
+
+@utility meter-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--tone);
+  transition: width 500ms ease-out;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+/* The spend threshold, drawn across the track. */
+@utility meter-tick {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--foreground);
+}
+
+/* A meter the payload did not carry. Hatched, so it cannot be read as 0%. */
+@utility absent {
+  border: 1px dashed var(--border);
+  background: repeating-linear-gradient(135deg, transparent 0 5px, var(--secondary) 5px 7px);
+}
+
+@utility step {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px 6px 2px 2px;
+  &[data-state="below"] {
+    background: var(--secondary);
+  }
+  &[data-state="on"] {
+    border-style: solid;
+    border-color: var(--tone);
+  }
+  &[data-state="next"] {
+    border: 1px dashed var(--primary);
+    color: var(--primary);
+  }
+}
+
+@utility step-fill {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  border-top: 2px solid var(--tone);
+  background: color-mix(in oklab, var(--tone) 30%, transparent);
+  transition: height 500ms ease-out;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+@utility step-tick {
+  position: absolute;
+  inset-inline: 0;
+  border-top: 1px dashed color-mix(in oklab, var(--foreground) 60%, transparent);
+}

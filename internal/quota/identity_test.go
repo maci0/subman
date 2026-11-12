@@ -1,0 +1,30 @@
+package quota
+
+import (
+	"encoding/base64"
+	"testing"
+)
+
+func TestIdentity(t *testing.T) {
+	jwt := "h." + base64.RawURLEncoding.EncodeToString([]byte(`{"email":"dev@example.com","sub":"1"}`)) + ".sig"
+	cases := []struct {
+		name string
+		cred map[string]any
+		want string
+	}{
+		{"flat email", map[string]any{"email": "a@example.com", "id_token": jwt}, "a@example.com"},
+		{"top-level id_token", map[string]any{"id_token": jwt}, "dev@example.com"},
+		{"nested id_token", map[string]any{"tokens": map[string]any{"id_token": jwt}}, "dev@example.com"},
+		{"grok entry", map[string]any{"https://auth.x.ai::c": map[string]any{"key": "k", "email": "g@example.com"}}, "g@example.com"},
+		{"no identity", map[string]any{"claudeAiOauth": map[string]any{"accessToken": "x"}}, ""},
+		{"not a jwt", map[string]any{"id_token": "opaque"}, ""},
+		{"bad payload", map[string]any{"id_token": "h.!!!.s"}, ""},
+		{"payload not json", map[string]any{"id_token": "h." + base64.RawURLEncoding.EncodeToString([]byte("x")) + ".s"}, ""},
+		{"empty", map[string]any{}, ""},
+	}
+	for _, c := range cases {
+		if got := Identity(c.cred); got != c.want {
+			t.Errorf("%s: %q, want %q", c.name, got, c.want)
+		}
+	}
+}

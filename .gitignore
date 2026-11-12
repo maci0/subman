@@ -1,0 +1,11 @@
+.gocache/
+.scratch/
+build/bin/
+frontend/dist/
+frontend/node_modules/
+frontend/wailsjs/
+web/dist/
+web/node_modules/
+data/
+*.exe
+/subman

@@ -1,0 +1,6 @@
+claude.svg, codex.svg, grok.svg, and antigravity.svg are copied unmodified from
+@lobehub/icons-static-svg 1.102.0 (https://github.com/lobehub/lobe-icons), which its
+package.json licenses as MIT.
+
+The marks are trademarks of Anthropic, OpenAI, xAI, and Google. subman uses them
+only to label which vendor an account belongs to.

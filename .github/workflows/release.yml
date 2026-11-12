@@ -1,0 +1,125 @@
+name: release
+
+on:
+  push:
+    tags: ["v[0-9]*"]
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test ./...
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            goos: linux
+            goarch: amd64
+            cgo: "1"
+            tags: production,webkit2_41
+            asset: subman-linux-amd64
+          - os: ubuntu-24.04-arm
+            goos: linux
+            goarch: arm64
+            cgo: "1"
+            tags: production,webkit2_41
+            asset: subman-linux-arm64
+          - os: windows-2025
+            goos: windows
+            goarch: amd64
+            cgo: "0"
+            tags: production
+            asset: subman-windows-amd64.exe
+          - os: windows-11-arm
+            goos: windows
+            goarch: arm64
+            cgo: "0"
+            tags: production
+            asset: subman-windows-arm64.exe
+          - os: macos-15
+            goos: darwin
+            goarch: arm64
+            cgo: "1"
+            tags: production
+            asset: subman-darwin-arm64
+          - os: macos-15-intel
+            goos: darwin
+            goarch: amd64
+            cgo: "1"
+            tags: production
+            asset: subman-darwin-amd64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: WebKitGTK
+        if: matrix.goos == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+        working-directory: frontend
+      - run: bun test
+        working-directory: frontend
+      - run: bun run build
+        working-directory: frontend
+      - name: compile
+        shell: bash
+        env:
+          CGO_ENABLED: ${{ matrix.cgo }}
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          set -eu
+          args=()
+          if [ -n "${{ matrix.tags }}" ]; then
+            args+=(-tags "${{ matrix.tags }}")
+          fi
+          ver="${GITHUB_REF_NAME#v}"
+          go build -buildvcs=false -trimpath \
+            -ldflags "-s -w -X main.version=${ver}" \
+            "${args[@]}" -o "${{ matrix.asset }}" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: checksums
+        run: |
+          set -eu
+          cd dist
+          sha256sum subman-* > SHA256SUMS
+          cat SHA256SUMS
+      - name: publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag
