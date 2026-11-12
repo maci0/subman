@@ -25,7 +25,19 @@ func TestParseClaudeWeeklyAndExtra(t *testing.T) {
 	if r.Windows[0].Label != "5-hour" || r.Windows[0].Util == nil || *r.Windows[0].Util != 12.5 {
 		t.Fatalf("session: %+v", r.Windows[0])
 	}
-	if !r.Credits.Enabled || r.Credits.Used == nil || *r.Credits.Used != 3.5 {
+	// The weekly blocks decide the ladder step. A parser that swaps them, or
+	// reads the session percent into every window, still produces three windows.
+	byLabel := map[string]float64{}
+	for _, w := range r.Windows[1:] {
+		if w.Util == nil {
+			t.Fatalf("weekly window without a percent: %+v", w)
+		}
+		byLabel[w.Label] = *w.Util
+	}
+	if byLabel["All models"] != 80 || byLabel["Opus"] != 10 {
+		t.Fatalf("weekly percents %+v", byLabel)
+	}
+	if !r.Credits.Enabled || r.Credits.Used == nil || *r.Credits.Used != 3.5 || r.Credits.Limit == nil || *r.Credits.Limit != 20 || r.Credits.Currency != "USD" {
 		t.Fatalf("credits: %+v", r.Credits)
 	}
 }
@@ -84,14 +96,21 @@ func TestParseCodexResetsAndWindows(t *testing.T) {
 	if len(r.Windows) != 2 || r.Windows[0].Label != "Current session" || r.Windows[1].Label != "Weekly" {
 		t.Fatalf("windows %+v", r.Windows)
 	}
-	if r.Credits.ResetCount == nil || *r.Credits.ResetCount != 2 {
+	if r.Credits.ResetCount == nil || *r.Credits.ResetCount != 2 || r.Credits.ResetApplies == nil || *r.Credits.ResetApplies != 1 {
 		t.Fatalf("resets %+v", r.Credits)
 	}
 	if r.Credits.Balance == nil || *r.Credits.Balance != 4.5 {
 		t.Fatalf("balance %+v", r.Credits.Balance)
 	}
+	// 1762819200 is 2025-11-11, a year before now. A parser that reads the
+	// current time, or the window length, instead of reset_at still has a
+	// time to show, so the instant itself is what must match.
+	primary := time.Unix(1762819200, 0).UTC()
+	if r.Windows[0].ResetsAt == nil || !r.Windows[0].ResetsAt.Equal(primary) {
+		t.Fatalf("session reset %+v, want %v", r.Windows[0].ResetsAt, primary)
+	}
 	if r.Windows[1].ResetsAt == nil || !r.Windows[1].ResetsAt.Equal(now.Add(time.Hour)) {
-		t.Fatalf("reset %+v", r.Windows[1].ResetsAt)
+		t.Fatalf("weekly reset %+v", r.Windows[1].ResetsAt)
 	}
 }
 
@@ -108,6 +127,12 @@ func TestParseGrokCreditUsage(t *testing.T) {
 	r := Parse(model.ProviderGrok, body, time.Now())
 	if !r.OK || len(r.Windows) != 1 || r.Windows[0].Label != "Credits" || *r.Windows[0].Util != 3 {
 		t.Fatalf("%+v", r)
+	}
+	// The credits view has no resets_at. The period end is the reset, and a
+	// window without one never gets a "spend it before then" step.
+	want := time.Date(2026, 11, 18, 0, 0, 0, 0, time.UTC)
+	if r.Windows[0].ResetsAt == nil || !r.Windows[0].ResetsAt.Equal(want) {
+		t.Fatalf("reset %+v", r.Windows[0].ResetsAt)
 	}
 	if r.Credits.Balance == nil || *r.Credits.Balance != 20.06 {
 		t.Fatalf("balance %+v", r.Credits)
@@ -137,7 +162,13 @@ func TestParseAntigravityComplementsRemaining(t *testing.T) {
 	if r.Windows[0].Label != "Gemini weekly" || *r.Windows[0].Util != 60 {
 		t.Fatalf("%+v", r.Windows[0])
 	}
-	if r.Windows[1].Label != "Claude 5h" || *r.Windows[1].Util != 0 {
+	want := time.Date(2026, 11, 18, 0, 0, 0, 0, time.UTC)
+	if r.Windows[0].ResetsAt == nil || !r.Windows[0].ResetsAt.Equal(want) {
+		t.Fatalf("weekly reset %+v", r.Windows[0].ResetsAt)
+	}
+	// A full bucket states no reset. Inventing one would schedule a spend step
+	// for a window the payload never timed.
+	if r.Windows[1].Label != "Claude 5h" || *r.Windows[1].Util != 0 || r.Windows[1].ResetsAt != nil {
 		t.Fatalf("%+v", r.Windows[1])
 	}
 }
@@ -217,12 +248,15 @@ func TestClaudeReadsEveryWeeklyBlock(t *testing.T) {
 }
 
 func TestUnixMaybeRoundsMilliseconds(t *testing.T) {
+	// 400 ms from the boundary rounds the same way truncation does, so the
+	// inputs sit past the halfway point: only rounding reaches the second
+	// the comment promises. A truncated expiry reads as already past.
 	want := time.Date(2026, 11, 11, 0, 0, 1, 0, time.UTC)
-	got := unixMaybe(float64(want.UnixMilli() - 400))
+	got := unixMaybe(float64(want.UnixMilli() - 499))
 	if got == nil || !got.Equal(want) {
 		t.Fatalf("round up: %v", got)
 	}
-	down := unixMaybe(float64(want.Add(-time.Second).UnixMilli() + 400))
+	down := unixMaybe(float64(want.Add(-time.Second).UnixMilli() + 499))
 	if down == nil || !down.Equal(want.Add(-time.Second)) {
 		t.Fatalf("round down: %v", down)
 	}

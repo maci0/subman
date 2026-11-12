@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { day, fromDay, relative, tone } from "./format";
+import { day, fromDay, num, pct, relative, tone } from "./format";
 
 const NOW = Date.parse("2026-11-11T12:00:00Z");
 
@@ -26,6 +26,22 @@ test("a date input value round-trips through the RFC 3339 form", () => {
   expect(fromDay("2026-11-20T18:30:00Z")).toBe("2026-11-20T18:30:00Z");
   expect(fromDay("2026-11-20T18:30:00")).toBe("2026-11-20T18:30:00");
   expect(fromDay("2026-02-31T00:00:00Z")).toBeUndefined();
+});
+
+// A meter the payload did not carry is absent. Rounding it, or printing it as
+// 0%, draws a healthy empty meter over a limit the provider never reported.
+test("a missing number stays n/a and a present one is exact", () => {
+  expect(pct(undefined)).toBe("n/a");
+  expect(pct(null)).toBe("n/a");
+  expect(pct(Number.NaN)).toBe("n/a");
+  expect(pct(0)).toBe("0%");
+  expect(pct(12.5)).toBe("13%");
+  expect(pct(99.4)).toBe("99%");
+  expect(num(undefined)).toBe("n/a");
+  expect(num(Number.NaN)).toBe("n/a");
+  expect(num(0)).toBe("0");
+  expect(num(20.06)).toBe("20.06");
+  expect(num(3)).toBe("3");
 });
 
 test("tone follows the account threshold", () => {

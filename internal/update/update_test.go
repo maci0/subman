@@ -81,7 +81,10 @@ func TestCheckRejectsMissingSums(t *testing.T) {
 func TestSumFor(t *testing.T) {
 	line := "deafbeefdeafbeefdeafbeefdeafbeefdeafbeefdeafbeefdeafbeefdeafbeef  subman-linux-amd64\n"
 	got, ok := sumFor(line, "subman-linux-amd64")
-	if !ok || len(got) != 64 {
+	// The length alone accepts any 64 characters. Install compares this
+	// string with the file's digest, so a different value replaces the
+	// binary with one the checksum file never named.
+	if !ok || got != "deafbeefdeafbeefdeafbeefdeafbeefdeafbeefdeafbeefdeafbeefdeafbeef" {
 		t.Fatal(got, ok)
 	}
 	if _, ok := sumFor("aa  other\n", "subman-linux-amd64"); ok {

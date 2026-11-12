@@ -99,8 +99,22 @@ func TestShouldReset(t *testing.T) {
 	if !ShouldReset(a, r) {
 		t.Fatal("expected a reset")
 	}
+	// The provider banked two resets and says none of them clear the limit
+	// that is full. UsableResets falls back to the total when the applicable
+	// count is absent, so leaving it unset would spend a reset for another limit.
+	none := 0
+	r.Credits.ResetApplies = &none
+	if ShouldReset(a, r) {
+		t.Fatal("a reset that does not apply was treated as usable")
+	}
+	one := 1
+	r.Credits.ResetApplies = &one
+	if !ShouldReset(a, r) {
+		t.Fatal("an applicable reset was ignored")
+	}
 	zero := 0
 	r.Credits.ResetCount = &zero
+	r.Credits.ResetApplies = nil
 	if ShouldReset(a, r) {
 		t.Fatal("zero credits")
 	}

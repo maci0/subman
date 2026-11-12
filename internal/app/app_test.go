@@ -20,8 +20,11 @@ func reading(ok bool, utils ...float64) model.Reading {
 }
 
 func TestCrossed(t *testing.T) {
-	under, over := reading(true, 40, 60), reading(true, 40, 97)
-	if label, util, ok := crossed(&under, over, 95); !ok || label != "All models" || util != 97 {
+	// The session meter crossed too, and the weekly one is fuller. The
+	// notification names the fullest, so the first window over the threshold
+	// is the wrong limit.
+	under, over := reading(true, 40, 60), reading(true, 96, 99)
+	if label, util, ok := crossed(&under, over, 95); !ok || label != "All models" || util != 99 {
 		t.Fatalf("under to over: %q %v %v", label, util, ok)
 	}
 	if _, _, ok := crossed(nil, over, 95); !ok {
@@ -461,8 +464,16 @@ func TestRunLadderUsesABankedResetAtTheTop(t *testing.T) {
 	one := 1
 	full := reading(true, 99)
 	full.TierID, full.PolledAt = "pro", time.Now().UTC()
-	full.Credits.ResetCount = &one
-	full.Credits.Resets = []model.ResetCredit{{ID: "credit-1", Type: "weekly", Left: 1, Applies: true}}
+	// Two resets are banked and the provider says one applies. Without the
+	// applicable count the total is what the ladder treats as usable, so a
+	// reset for another limit would be offered and spent.
+	banked := 2
+	full.Credits.ResetCount = &banked
+	full.Credits.ResetApplies = &one
+	full.Credits.Resets = []model.ResetCredit{
+		{ID: "other-limit", Type: "weekly", Left: 1},
+		{ID: "credit-1", Type: "five_hour", Left: 1, Applies: true},
+	}
 	if err := root.PutReading(acc.ID, full); err != nil {
 		t.Fatal(err)
 	}
