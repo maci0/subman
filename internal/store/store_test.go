@@ -273,4 +273,24 @@ func TestSettingsDefaultRoundTripAndRefusal(t *testing.T) {
 	if got, _ := root.Settings(); got.AutoPollMinutes != 0 {
 		t.Fatalf("a refused save changed the file: %+v", got)
 	}
+	// A file that omits a field must not inherit that field's default: a missing
+	// interval would start the 15-minute poll, a missing notify would turn
+	// notifications on.
+	for _, body := range []string{
+		"{}\n",
+		`{"autoPollMinutes":0}` + "\n",
+		`{"autoPollMinutes":0,"notify":false}` + "\n",
+		`{"autoPollMinutes":0,"notify":false,"foldedProviders":[],"extra":1}` + "\n",
+		`{"autoPollMinutes":0,"notify":false,"foldedProviders":null}` + "\n",
+	} {
+		if err := os.WriteFile(filepath.Join(root.Path, "settings.json"), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := root.Settings(); err == nil {
+			t.Fatalf("accepted settings %s", body)
+		}
+	}
+	if _, err := Open("relative/data"); err == nil || !strings.Contains(err.Error(), "SUBMAN_DATA") {
+		t.Fatalf("relative data dir: %v", err)
+	}
 }

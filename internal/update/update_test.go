@@ -95,7 +95,7 @@ func TestTrustedAndRepo(t *testing.T) {
 	if !trustedURL("https://github.com/maci0/subman/releases/download/v0.2.0/a") {
 		t.Fatal("github rejected")
 	}
-	if validRepo("../x") || validRepo("a/b/c") || !validRepo("maci0/subman") {
+	if validRepo("../x") || validRepo("a/b/c") || validRepo(".hidden/subman") || validRepo("maci0/-subman") || !validRepo("maci0/subman") {
 		t.Fatal("repo check")
 	}
 }

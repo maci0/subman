@@ -277,7 +277,9 @@ func validRepo(repo string) bool {
 }
 
 func partOK(s string) bool {
-	if s == "" || len(s) > 100 || s == "." || s == ".." {
+	// GitHub rejects an empty part, one over 100 characters, and one that
+	// starts with '.' or '-'. The first two also stop a path segment.
+	if s == "" || len(s) > 100 || s[0] == '.' || s[0] == '-' {
 		return false
 	}
 	for _, c := range s {

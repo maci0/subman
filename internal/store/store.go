@@ -16,6 +16,7 @@ package store
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -63,7 +64,7 @@ func Open(path string) (*Root, error) {
 		}
 	}
 	if !filepath.IsAbs(path) {
-		return nil, fmt.Errorf("data dir must be absolute, got %q", path)
+		return nil, fmt.Errorf("data dir must be absolute, got %q (SUBMAN_DATA or -data)", path)
 	}
 	for _, sub := range []string{"", "accounts"} {
 		if err := os.MkdirAll(filepath.Join(path, sub), dirPerm); err != nil {
@@ -544,17 +545,49 @@ func (r *Root) PutSettings(s model.Settings) error {
 
 // Settings returns the stored preferences, or the defaults when none were
 // saved. A stored file that no longer validates is an error, not a reset.
+// Every field must be present: decoding into the defaults would start the
+// 15-minute poll, or turn notifications on, from a file that never asked.
 func (r *Root) Settings() (model.Settings, error) {
-	s := model.DefaultSettings()
-	err := readJSON(filepath.Join(r.Path, "settings.json"), &s)
+	path := filepath.Join(r.Path, "settings.json")
+	body, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return model.DefaultSettings(), nil
 	}
 	if err != nil {
 		return model.Settings{}, err
 	}
-	if s.FoldedProviders == nil {
-		s.FoldedProviders = []model.Provider{}
+	if len(body) > maxCred {
+		return model.Settings{}, fmt.Errorf("%s is over %d bytes", filepath.Base(path), maxCred)
+	}
+	var raw struct {
+		AutoPollMinutes *int              `json:"autoPollMinutes"`
+		Notify          *bool             `json:"notify"`
+		FoldedProviders *[]model.Provider `json:"foldedProviders"`
+	}
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&raw); err != nil {
+		return model.Settings{}, fmt.Errorf("settings.json: %w", err)
+	}
+	// Decode stops at the object, so a second value would be ignored.
+	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		if err == nil {
+			err = fmt.Errorf("extra data after the settings object")
+		}
+		return model.Settings{}, fmt.Errorf("settings.json: %w", err)
+	}
+	switch {
+	case raw.AutoPollMinutes == nil:
+		return model.Settings{}, fmt.Errorf("settings.json is missing autoPollMinutes")
+	case raw.Notify == nil:
+		return model.Settings{}, fmt.Errorf("settings.json is missing notify")
+	case raw.FoldedProviders == nil:
+		return model.Settings{}, fmt.Errorf("settings.json is missing foldedProviders")
+	}
+	s := model.Settings{
+		AutoPollMinutes: *raw.AutoPollMinutes,
+		Notify:          *raw.Notify,
+		FoldedProviders: *raw.FoldedProviders,
 	}
 	return s, s.Validate()
 }
