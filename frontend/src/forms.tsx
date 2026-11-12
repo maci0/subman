@@ -14,6 +14,9 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 
+/** An account name is 1 to this many characters, the same bound model.MaxNameLen enforces on save. */
+const MAX_NAME_LEN = 64;
+
 export function SettingsSheet({
   view, busy, errorLine, defaultCredential, login, canSignIn, onClose, onSave, onReplace, onSignIn, onCancelSignIn, onDelete,
 }: {
@@ -89,6 +92,16 @@ export function SettingsSheet({
           aria-busy={busy === "save" || busy === "replace" || undefined}
           onSubmit={(e) => {
             e.preventDefault();
+            // Checked here, not with the input's required attribute: the browser's
+            // own tooltip says only that the field is missing and never names the
+            // length, so a name of spaces or one past the limit looks like a save
+            // that did nothing.
+            const name = form.name.trim();
+            if (!name || [...name].length > MAX_NAME_LEN) {
+              setErrorField("name");
+              setFormError(`The name needs 1 to ${MAX_NAME_LEN} characters.`);
+              return;
+            }
             const dates = { activatedAt: fromDay(activated), renewalAt: fromDay(renewal) };
             if (activated && !dates.activatedAt) {
               setErrorField("activatedAt");
@@ -108,12 +121,12 @@ export function SettingsSheet({
             }
             setFormError("");
             setErrorField("");
-            onSave({ ...form, ...dates, usageThreshold });
+            onSave({ ...form, name, ...dates, usageThreshold });
           }}
         >
           <div className="flex flex-1 flex-col gap-4 overflow-auto px-4 pb-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Name"><Input required value={form.name} onInput={(e) => setForm({ ...form, name: e.currentTarget.value })} /></Field>
+              <Field label="Name"><Input name="name" aria-invalid={errorField === "name" || undefined} aria-describedby={errorField === "name" ? errorId : undefined} value={form.name} onInput={(e) => setForm({ ...form, name: e.currentTarget.value })} /></Field>
               <Field label="Tier">
                 <NativeSelect value={form.tierId} onChange={(e) => setForm({ ...form, tierId: e.currentTarget.value })}>
                   <NativeSelectOption value="">not reported</NativeSelectOption>
@@ -364,7 +377,6 @@ function DayInput({ name, value, invalid, describedBy, onChange }: { name: strin
       type="text"
       inputMode="numeric"
       placeholder="YYYY-MM-DD"
-      pattern="\d{4}-\d{2}-\d{2}"
       title="A date as YYYY-MM-DD"
       aria-invalid={invalid || undefined}
       aria-describedby={describedBy}
