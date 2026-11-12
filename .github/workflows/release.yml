@@ -84,6 +84,8 @@ jobs:
           CGO_ENABLED: ${{ matrix.cgo }}
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+          # Wails' macOS file dialog uses UTType; plain go build does not link its framework.
+          CGO_LDFLAGS: ${{ matrix.goos == 'darwin' && '-framework UniformTypeIdentifiers' || '' }}
         run: |
           set -eu
           args=()
