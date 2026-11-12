@@ -15,6 +15,7 @@
 package store
 
 import (
+	"bufio"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -92,48 +93,44 @@ func validID(id string) error {
 	return nil
 }
 
-func (r *Root) List() ([]model.Account, error) {
-	dir := filepath.Join(r.Path, "accounts")
-	entries, err := os.ReadDir(dir)
+// Accounts reads the accounts directory once. Loaded are the accounts whose
+// account.json could be read; problems names the directories it could not,
+// each with the reason, so one bad directory does not hide the rest.
+func (r *Root) Accounts() (loaded []model.Account, problems []string, err error) {
+	entries, err := os.ReadDir(filepath.Join(r.Path, "accounts"))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	out := make([]model.Account, 0, len(entries))
+	loaded = make([]model.Account, 0, len(entries))
+	problems = []string{}
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
 		acc, err := r.Load(e.Name())
 		if err != nil {
-			continue
-		}
-		out = append(out, acc)
-	}
-	return out, nil
-}
-
-// Unreadable names every account directory List left out because its
-// account.json could not be loaded, each with the reason. List skips those
-// so one bad directory does not hide the rest; this is how they are reported.
-func (r *Root) Unreadable() ([]string, error) {
-	entries, err := os.ReadDir(filepath.Join(r.Path, "accounts"))
-	if err != nil {
-		return nil, err
-	}
-	out := []string{}
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		if _, err := r.Load(e.Name()); err != nil {
 			reason := "account.json is not valid"
 			if errors.Is(err, os.ErrNotExist) {
 				reason = "account.json is missing"
 			}
-			out = append(out, fmt.Sprintf("%s: %s", e.Name(), reason))
+			problems = append(problems, fmt.Sprintf("%s: %s", e.Name(), reason))
+			continue
 		}
+		loaded = append(loaded, acc)
 	}
-	return out, nil
+	return loaded, problems, nil
+}
+
+func (r *Root) List() ([]model.Account, error) {
+	loaded, _, err := r.Accounts()
+	return loaded, err
+}
+
+// Unreadable names every account directory List left out because its
+// account.json could not be loaded, each with the reason.
+func (r *Root) Unreadable() ([]string, error) {
+	_, problems, err := r.Accounts()
+	return problems, err
 }
 
 func (r *Root) Load(id string) (model.Account, error) {
@@ -388,20 +385,46 @@ func (r *Root) AppendHistory(id string, entry model.HistoryEntry) error {
 
 // History returns the account's last maxHistory plan changes, newest first.
 // An account that never stepped has none.
+//
+// The file is append-only and never trimmed, so only its tail is decoded:
+// each line is one JSON object, and a line over maxLine cannot be one, so
+// maxHistory of them fit in the window that is read.
 func (r *Root) History(id string) ([]model.HistoryEntry, error) {
 	dir, err := r.accountDir(id)
 	if err != nil {
 		return nil, err
 	}
-	body, err := os.ReadFile(filepath.Join(dir, "history.jsonl"))
+	f, err := os.Open(filepath.Join(dir, "history.jsonl"))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	var out []model.HistoryEntry
-	for _, line := range strings.Split(strings.TrimSpace(string(body)), "\n") {
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	// One extra line: the seek lands inside a line, and that fragment is dropped.
+	const maxLine = 8192
+	window := int64(maxHistory+1) * maxLine
+	if info.Size() > window {
+		if _, err := f.Seek(info.Size()-window, io.SeekStart); err != nil {
+			return nil, err
+		}
+	}
+	out := make([]model.HistoryEntry, 0, maxHistory)
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, maxLine), maxLine)
+	first := info.Size() > window
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if first {
+			// The seek lands mid-line, so the first fragment is not a record.
+			first = false
+			continue
+		}
 		if line == "" {
 			continue
 		}
@@ -412,6 +435,9 @@ func (r *Root) History(id string) ([]model.HistoryEntry, error) {
 			continue
 		}
 		out = append(out, entry)
+	}
+	if err := sc.Err(); err != nil {
+		return nil, err
 	}
 	if len(out) > maxHistory {
 		out = out[len(out)-maxHistory:]

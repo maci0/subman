@@ -56,7 +56,7 @@ func (a *App) Overview() (model.Overview, error) {
 }
 
 func (a *App) overview() (model.Overview, error) {
-	accounts, err := a.root.List()
+	accounts, problems, err := a.root.Accounts()
 	if err != nil {
 		return model.Overview{}, err
 	}
@@ -82,10 +82,6 @@ func (a *App) overview() (model.Overview, error) {
 	}
 	upd.Current = Version
 	sup := sandbox.Check()
-	problems, err := a.root.Unreadable()
-	if err != nil {
-		return model.Overview{}, err
-	}
 	settings, err := a.root.Settings()
 	if err != nil {
 		return model.Overview{}, err

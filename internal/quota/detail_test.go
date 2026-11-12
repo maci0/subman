@@ -128,8 +128,7 @@ func TestClaudeItemisesBankedResets(t *testing.T) {
 	claudeUsageURL = srv.URL + "/usage"
 	defer func() { claudeUsageURL = old }()
 
-	r := model.Reading{OK: true}
-	claudeResets(context.Background(), "tok", &r)
+	r := model.Reading{OK: true, Credits: claudeResets(context.Background(), "tok")}
 	if query != "cedar_ember=1&skip_spend=1" || agent != claudeUA || app != claudeApp {
 		t.Fatalf("request: %q %q %q", query, agent, app)
 	}
@@ -151,8 +150,7 @@ func TestClaudeItemisesBankedResets(t *testing.T) {
 	}))
 	defer srv2.Close()
 	claudeUsageURL = srv2.URL
-	r = model.Reading{OK: true}
-	claudeResets(context.Background(), "tok", &r)
+	r = model.Reading{OK: true, Credits: claudeResets(context.Background(), "tok")}
 	if r.Credits.ResetCount != nil || r.Credits.Resets != nil {
 		t.Fatalf("ineligible account: %+v", r.Credits)
 	}

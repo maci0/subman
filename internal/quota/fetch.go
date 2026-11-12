@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/maci0/subman/internal/model"
@@ -40,66 +41,70 @@ var codexUsageURL = "https://chatgpt.com/backend-api/wham/usage"
 // account's credential file. The vendor CLI's own file is not opened, so
 // a rotated refresh token lives in the copy from then on.
 func Fetch(ctx context.Context, acc model.Account, now time.Time) model.Reading {
-	reading := fetchRenewing(ctx, acc, now)
+	reading, cred := fetchRenewing(ctx, acc, now)
 	// The identity comes from the credential copy, so a failed poll still names the login.
-	if body, err := os.ReadFile(acc.CredentialFile); err == nil {
-		cred := map[string]any{}
-		if json.Unmarshal(body, &cred) == nil {
-			reading.Account = Identity(cred)
-			stateDates(acc.Provider, cred, &reading, now)
-		}
+	if cred != nil {
+		reading.Account = Identity(cred)
+		stateDates(acc.Provider, cred, &reading, now)
 	}
 	return reading
 }
 
-func fetchRenewing(ctx context.Context, acc model.Account, now time.Time) model.Reading {
-	body, err := os.ReadFile(acc.CredentialFile)
+// fetchRenewing returns the poll and the credential it was made with. cred is
+// nil only when the copy could not be read.
+func fetchRenewing(ctx context.Context, acc model.Account, now time.Time) (model.Reading, map[string]any) {
+	cred, err := readCredential(acc.CredentialFile)
 	if err != nil {
-		return fail("no-token", now)
-	}
-	cred := map[string]any{}
-	if err := json.Unmarshal(body, &cred); err != nil {
-		return fail("no-token", now)
+		return fail("no-token", now), nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
 	if expired(acc.Provider, cred, now) {
 		if err := Renew(ctx, acc); err != nil {
-			return fail("expired", now)
+			return fail("expired", now), cred
 		}
 		return fetch(ctx, acc, now)
 	}
-	reading := fetch(ctx, acc, now)
+	reading, cred := fetch(ctx, acc, now)
 	if reading.Error == "http-401" {
 		if err := Renew(ctx, acc); err != nil {
-			return reading
+			return reading, cred
 		}
 		return fetch(ctx, acc, now)
 	}
-	return reading
+	return reading, cred
 }
 
-func fetch(ctx context.Context, acc model.Account, now time.Time) model.Reading {
-	body, err := os.ReadFile(acc.CredentialFile)
+// readCredential reads and decodes the account's own credential copy.
+func readCredential(path string) (map[string]any, error) {
+	body, err := os.ReadFile(path)
 	if err != nil {
-		return fail("no-token", now)
+		return nil, err
 	}
 	cred := map[string]any{}
 	if err := json.Unmarshal(body, &cred); err != nil {
-		return fail("no-token", now)
+		return nil, err
+	}
+	return cred, nil
+}
+
+func fetch(ctx context.Context, acc model.Account, now time.Time) (model.Reading, map[string]any) {
+	cred, err := readCredential(acc.CredentialFile)
+	if err != nil {
+		return fail("no-token", now), nil
 	}
 	switch acc.Provider {
 	case model.ProviderClaude:
-		return fetchClaude(ctx, cred, now)
+		return fetchClaude(ctx, cred, now), cred
 	case model.ProviderCodex:
-		return fetchCodex(ctx, cred, now)
+		return fetchCodex(ctx, cred, now), cred
 	case model.ProviderGrok:
-		return fetchGrok(ctx, cred, now)
+		return fetchGrok(ctx, cred, now), cred
 	case model.ProviderAntigravity:
-		return fetchAntigravity(ctx, acc, now)
+		return fetchAntigravity(ctx, acc, now), cred
 	default:
-		return fail("unknown-provider", now)
+		return fail("unknown-provider", now), cred
 	}
 }
 
@@ -149,9 +154,24 @@ func fetchClaude(ctx context.Context, cred map[string]any, now time.Time) model.
 		return fail(fmt.Sprintf("http-%d", status), now)
 	}
 	r := Parse(model.ProviderClaude, body, now)
-	claudeProfile(ctx, token, &r, now)
+	// The profile and the reset list are separate calls and neither needs
+	// the other's answer, so they run together.
+	var profile model.Reading
+	var credits model.Credits
+	var wg sync.WaitGroup
+	wg.Go(func() { profile = claudeProfile(ctx, token, now) })
 	if r.OK {
-		claudeResets(ctx, token, &r)
+		wg.Go(func() { credits = claudeResets(ctx, token) })
+	}
+	wg.Wait()
+	if profile.Plan != "" {
+		r.Plan, r.TierID = profile.Plan, profile.TierID
+	}
+	if profile.ActivatedAt != "" {
+		r.ActivatedAt, r.RenewalAt, r.RenewalEstimated = profile.ActivatedAt, profile.RenewalAt, profile.RenewalEstimated
+	}
+	if credits.ResetCount != nil {
+		r.Credits = credits
 	}
 	if r.Plan == "" {
 		r.Plan = claudePlan(asString(oauth["subscriptionType"]), asString(oauth["rateLimitTier"]))
@@ -178,9 +198,16 @@ func fetchCodex(ctx context.Context, cred map[string]any, now time.Time) model.R
 	if status != 200 {
 		return fail(fmt.Sprintf("http-%d", status), now)
 	}
-	r := Parse(model.ProviderCodex, body, now)
-	if r.OK {
-		codexResets(ctx, token, headers, &r)
+	// The reset list does not need the parsed usage, only that it succeeded,
+	// so it runs while the usage body is decoded.
+	var resets []model.ResetCredit
+	var r model.Reading
+	var wg sync.WaitGroup
+	wg.Go(func() { resets = codexResets(ctx, token, headers) })
+	wg.Go(func() { r = Parse(model.ProviderCodex, body, now) })
+	wg.Wait()
+	if r.OK && resets != nil {
+		r.Credits.Resets = resets
 	}
 	return r
 }
@@ -190,7 +217,15 @@ func fetchGrok(ctx context.Context, cred map[string]any, now time.Time) model.Re
 	if token == "" {
 		return fail("no-token", now)
 	}
-	status, body, err := get(ctx, grokBillingURL+"?format=credits", token, nil)
+	// The weekly and monthly views are separate calls with nothing in common,
+	// so they run together.
+	var status, status2 int
+	var body, body2 []byte
+	var err, err2 error
+	var wg sync.WaitGroup
+	wg.Go(func() { status, body, err = get(ctx, grokBillingURL+"?format=credits", token, nil) })
+	wg.Go(func() { status2, body2, err2 = get(ctx, grokBillingURL, token, nil) })
+	wg.Wait()
 	if err != nil {
 		return fail("net", now)
 	}
@@ -198,8 +233,7 @@ func fetchGrok(ctx context.Context, cred map[string]any, now time.Time) model.Re
 		return fail(fmt.Sprintf("http-%d", status), now)
 	}
 	weekly := Parse(model.ProviderGrok, body, now)
-	status2, body2, err := get(ctx, grokBillingURL, token, nil)
-	if err == nil && status2 == 200 {
+	if err2 == nil && status2 == 200 {
 		monthly := Parse(model.ProviderGrok, body2, now)
 		if monthly.OK {
 			weekly.Windows = append(weekly.Windows, monthly.Windows...)

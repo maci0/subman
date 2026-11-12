@@ -20,26 +20,28 @@ var (
 	codexResetCreditsURL = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits"
 )
 
-// claudeProfile fills the plan, the tier, and the subscription start from
-// Claude's profile. Claude states no renewal date, so one is estimated as the
-// next monthly anniversary of the start and marked as an estimate.
-func claudeProfile(ctx context.Context, token string, r *model.Reading, now time.Time) {
+// claudeProfile reads Claude's profile and returns the plan, the tier, and the
+// subscription start it states. Claude states no renewal date, so one is
+// estimated as the next monthly anniversary of the start and marked as an
+// estimate. A failure returns a zero reading.
+func claudeProfile(ctx context.Context, token string, now time.Time) model.Reading {
 	status, body, err := get(ctx, claudeProfileURL, token, map[string]string{
 		"anthropic-beta":    "oauth-2025-04-20",
 		"anthropic-version": "2023-06-01",
 		"User-Agent":        claudeUA,
 		"x-app":             claudeApp,
 	})
+	var r model.Reading
 	if err != nil || status != 200 {
-		return
+		return r
 	}
 	var doc map[string]any
 	if json.Unmarshal(body, &doc) != nil {
-		return
+		return r
 	}
 	org := asMap(doc["organization"])
 	if asString(org["subscription_status"]) != "active" {
-		return
+		return r
 	}
 	if plan := claudePlan(asString(org["plan_display_name"])+" "+asString(org["organization_type"]), asString(org["rate_limit_tier"])); plan != "" {
 		r.Plan = plan
@@ -50,6 +52,7 @@ func claudeProfile(ctx context.Context, token string, r *model.Reading, now time
 		r.RenewalAt = nextMonthly(*began, now).Format(time.RFC3339)
 		r.RenewalEstimated = true
 	}
+	return r
 }
 
 // nextMonthly is the first monthly anniversary of began that is after now.
@@ -68,12 +71,13 @@ func nextMonthly(began, now time.Time) time.Time {
 	}
 }
 
-// codexResets itemises the banked resets that can still be used. Credits
-// that expire first come first, and ones that never expire last.
-func codexResets(ctx context.Context, token string, headers map[string]string, r *model.Reading) {
+// codexResets itemises the banked resets that can still be used and returns
+// them. A failure returns nil. Credits that expire first come first, and ones
+// that never expire last.
+func codexResets(ctx context.Context, token string, headers map[string]string) []model.ResetCredit {
 	status, body, err := get(ctx, codexResetCreditsURL, token, headers)
 	if err != nil || status != 200 {
-		return
+		return nil
 	}
 	var doc struct {
 		Credits []struct {
@@ -86,7 +90,7 @@ func codexResets(ctx context.Context, token string, headers map[string]string, r
 		} `json:"credits"`
 	}
 	if json.Unmarshal(body, &doc) != nil {
-		return
+		return nil
 	}
 	resets := []model.ResetCredit{}
 	for _, c := range doc.Credits {
@@ -103,7 +107,7 @@ func codexResets(ctx context.Context, token string, headers map[string]string, r
 		a, b := resets[i].ExpiresAt, resets[j].ExpiresAt
 		return a != nil && (b == nil || a.Before(*b))
 	})
-	r.Credits.Resets = resets
+	return resets
 }
 
 // claudeResetProgram is the name Claude gives its banked-reset programme in
@@ -114,11 +118,12 @@ const claudeResetProgram = "cedar_ember"
 // sentences, longer than an account name.
 const maxResetTitle = 160
 
-// claudeResets itemises Claude's banked resets. The usage endpoint lists
-// them only when asked with the programme flag and as the CLI surface; the
-// query and the fields are the Claude Code CLI's own. A reset "applies" when
-// it can be used now and clears the limit that is fullest.
-func claudeResets(ctx context.Context, token string, r *model.Reading) {
+// claudeResets itemises Claude's banked resets and returns them. The usage
+// endpoint lists them only when asked with the programme flag and as the CLI
+// surface; the query and the fields are the Claude Code CLI's own. A reset
+// "applies" when it can be used now and clears the limit that is fullest. A
+// failure returns a zero list.
+func claudeResets(ctx context.Context, token string) model.Credits {
 	status, body, err := get(ctx, claudeUsageURL+"?"+claudeResetProgram+"=1&skip_spend=1", token, map[string]string{
 		"anthropic-beta":    "oauth-2025-04-20",
 		"anthropic-version": "2023-06-01",
@@ -126,7 +131,7 @@ func claudeResets(ctx context.Context, token string, r *model.Reading) {
 		"x-app":             claudeApp,
 	})
 	if err != nil || status != 200 {
-		return
+		return model.Credits{}
 	}
 	var doc struct {
 		Status *struct {
@@ -146,7 +151,7 @@ func claudeResets(ctx context.Context, token string, r *model.Reading) {
 		} `json:"cedar_ember"`
 	}
 	if json.Unmarshal(body, &doc) != nil || doc.Status == nil || !doc.Status.Eligible {
-		return
+		return model.Credits{}
 	}
 	resets := []model.ResetCredit{}
 	total, applies := 0, 0
@@ -183,6 +188,5 @@ func claudeResets(ctx context.Context, token string, r *model.Reading) {
 		a, b := resets[i].ExpiresAt, resets[j].ExpiresAt
 		return a != nil && (b == nil || a.Before(*b))
 	})
-	r.Credits.Resets = resets
-	r.Credits.ResetCount, r.Credits.ResetApplies = &total, &applies
+	return model.Credits{Resets: resets, ResetCount: &total, ResetApplies: &applies}
 }

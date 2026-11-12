@@ -1,6 +1,7 @@
 package store
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -192,6 +193,17 @@ func TestHistoryNewestFirst(t *testing.T) {
 	h, err := root.History(acc.ID)
 	if err != nil || len(h) != 2 || h[0].To != "ultra" || h[0].Error != "exit status 3" || h[1].To != "max" {
 		t.Fatalf("%+v %v", h, err)
+	}
+
+	// Far more than maxHistory, each line short, so the tail read is what is tested.
+	for i := range 5000 {
+		if err := root.AppendHistory(acc.ID, model.HistoryEntry{From: "pro", To: fmt.Sprintf("t%d", i)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h, err = root.History(acc.ID)
+	if err != nil || len(h) != 50 || h[0].To != "t4999" || h[49].To != "t4950" {
+		t.Fatalf("len %d first %+v err %v", len(h), h[0], err)
 	}
 }
 
