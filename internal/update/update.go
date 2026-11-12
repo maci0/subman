@@ -253,7 +253,7 @@ func sumFor(sums, name string) (string, bool) {
 		if len(fields) != 2 || fields[1] != name {
 			continue
 		}
-		if len(fields[0]) != 64 {
+		if len(fields[0]) != 64 || fields[0] != strings.ToLower(fields[0]) {
 			return "", false
 		}
 		if _, err := hex.DecodeString(fields[0]); err != nil {
