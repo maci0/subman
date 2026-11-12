@@ -293,7 +293,7 @@ export function App() {
         ) : overview ? (
           <Empty onAdd={openAdd} />
         ) : error ? null : (
-          <p className="text-data text-muted-foreground" role="status">Reading accounts</p>
+          <p className="text-data text-muted-foreground" role="status" aria-live="polite">Reading accounts</p>
         )}
       </main>
 
@@ -359,7 +359,7 @@ export function App() {
       </footer>
 
       <AlertDialog open={confirmLadder} onOpenChange={(open) => { if (!open && busy === "ladder") return; setConfirmLadder(open); }}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-busy={busy === "ladder" || undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle>{busy === "ladder" ? "Running the ladder" : due.length > 0 ? `Run ${due.length} step${due.length === 1 ? "" : "s"}?` : "Nothing is due"}</AlertDialogTitle>
             <AlertDialogDescription asChild>
@@ -434,11 +434,15 @@ function summarize(overview: Overview | null): string {
 }
 
 function ErrorLine({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  // An error that appears after an action has to be reachable: focus moves to
+  // its dismiss control, which a screen reader then announces (WCAG 4.1.3).
+  const dismiss = useRef<HTMLButtonElement>(null);
+  useEffect(() => { dismiss.current?.focus(); }, []);
   return (
     <Alert variant="destructive" className="border-destructive/50 pr-10">
       <TriangleAlert />
       <AlertDescription className="break-words text-destructive">{message}</AlertDescription>
-      <Button variant="ghost" size="icon-xs" className="absolute top-2.5 right-2.5" aria-label="Dismiss" onClick={onDismiss}>
+      <Button ref={dismiss} variant="ghost" size="icon-xs" className="absolute top-2.5 right-2.5" aria-label={`Dismiss: ${message}`} onClick={onDismiss}>
         <X />
       </Button>
     </Alert>

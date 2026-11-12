@@ -93,6 +93,25 @@
       transition: none !important;
     }
   }
+
+  /* Forced colours drop the brand palette, so a focus ring and a meter fill
+     have to come from the system colour keywords or they vanish (WCAG 1.4.11). */
+  @media (forced-colors: active) {
+    :focus-visible {
+      outline: 2px solid Highlight;
+    }
+
+    [class~="meter-fill"],
+    [class~="step-fill"] {
+      background: Highlight;
+    }
+
+    [class~="meter-tick"],
+    [class~="step-tick"] {
+      background: CanvasText;
+      border-color: CanvasText;
+    }
+  }
 }
 
 /* A meter and the current ladder step read their colour from --tone. */

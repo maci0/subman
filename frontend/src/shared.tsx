@@ -77,7 +77,7 @@ export function NextSteps({ advice, nameOf, onSelect }: { advice: Advice[]; name
             <li key={`${a.accountId}:${a.kind}:${a.at}:${a.text}`} className={`grid items-baseline gap-4 border-t py-1.5 ${onSelect ? "grid-cols-steps-account" : "grid-cols-steps"}`}>
               <span className={due ? "font-semibold text-accent" : "text-muted-foreground"} title={when(a.at)}>{due ? "now" : relative(a.at)}</span>
               {onSelect ? (
-                <button className="truncate rounded-chip py-0.5 text-left font-semibold outline-none hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring" title={nameOf?.(a.accountId) || a.accountId} onClick={() => onSelect(a.accountId)}>{nameOf?.(a.accountId) || a.accountId}</button>
+                <button className="min-h-6 truncate rounded-chip py-0.5 text-left font-semibold outline-none hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring" title={nameOf?.(a.accountId) || a.accountId} onClick={() => onSelect(a.accountId)}>{nameOf?.(a.accountId) || a.accountId}</button>
               ) : null}
               <span className={a.kind === "login" ? "text-destructive" : a.kind === "expiring" ? "text-st-warn" : ""}>{a.text}</span>
             </li>

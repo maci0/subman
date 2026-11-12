@@ -128,10 +128,10 @@ function BoardRow({
   const threshold = view.threshold;
   const failed = reading !== undefined && !reading.ok;
   return (
-    <tr className="cursor-pointer border-t hover:bg-secondary/50 [&>*]:py-2 [&>*]:pr-5 [&>*]:align-top" onClick={onSelect}>
+    <tr className="cursor-pointer border-t hover:bg-secondary/50 focus-within:bg-secondary/50 [&>*]:py-2 [&>*]:pr-5 [&>*]:align-top" onClick={onSelect}>
       <th scope="row" className="pl-2 text-left font-normal">
         {/* The click bubbles to the row; the button is there for the keyboard. */}
-        <button id={rowId(view.account.id)} className="flex max-w-full items-center gap-1.5 rounded-chip py-0.5 font-semibold outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring">
+        <button id={rowId(view.account.id)} aria-label={`Open ${view.account.name}`} className="flex max-w-full items-center gap-1.5 rounded-chip py-0.5 font-semibold outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring">
           <AgentMark provider={view.account.provider} className="size-3.5" />
           <span className="truncate" title={view.account.name}>{view.account.name}</span>
         </button>
@@ -174,7 +174,7 @@ function BoardRow({
       </td>
       {/* The row opens the account; these two act in place. */}
       <td className="pr-1! text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-        <Button variant="ghost" size="icon-sm" aria-label={`Poll ${view.account.name}`} title="Poll" disabled={!!busy} onClick={onPoll}>
+        <Button variant="ghost" size="icon-sm" aria-label={`Poll ${view.account.name}`} aria-busy={polling || undefined} title="Poll" disabled={!!busy} onClick={onPoll}>
           <RefreshCw className={polling ? "motion-safe:animate-spin motion-reduce:text-accent" : ""} />
         </Button>
         <Button variant="ghost" size="icon-sm" aria-label={`Edit ${view.account.name}`} title="Edit" onClick={onEdit}>
@@ -215,7 +215,7 @@ function ResetsCell({ reading, warningMs }: { reading: Reading | undefined; warn
       {usable ? <span className="text-micro text-muted-foreground"> ({c.resetApplies} usable)</span> : null}
       {soon.length > 0 ? (
         <span className="mt-0.5 flex items-center gap-1 text-micro text-st-warn" title={soon.map((r) => `${r.title || r.type}: ${when(r.expiresAt)}`).join("\n")}>
-          <TriangleAlert className="size-3.5 shrink-0" />
+          <TriangleAlert className="size-3.5 shrink-0" role="img" aria-label="Expiring soon" />
           <span className="truncate">{soon.length === 1 ? "expires" : `${soon.length} expire`} {relative(soon[0]?.expiresAt)}</span>
         </span>
       ) : null}

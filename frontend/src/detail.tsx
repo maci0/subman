@@ -58,7 +58,7 @@ export function Detail({
       </div>
       <div>
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-          <h2 ref={heading} tabIndex={-1} className="flex min-w-0 items-center gap-2.5 text-figure font-bold tracking-figure outline-none [font-stretch:78%]">
+          <h2 ref={heading} tabIndex={-1} className="flex min-w-0 items-center gap-2.5 rounded-chip text-figure font-bold tracking-figure outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [font-stretch:78%]">
             <AgentMark provider={view.account.provider} className="size-7" />
             <span className="truncate">{view.account.name}</span>
           </h2>
@@ -173,7 +173,7 @@ function Ladder({ view, threshold, onEdit }: { view: AccountView; threshold: num
           const next = rank === nextRank;
           const state = on ? "on" : next ? "next" : currentRank !== undefined && rank < currentRank ? "below" : "above";
           return (
-            <li key={rank} className="flex w-[120px] shrink-0 flex-col gap-2" aria-current={on ? "step" : undefined}>
+            <li key={rank} className="flex w-[120px] shrink-0 flex-col gap-2" aria-current={on ? "step" : undefined} aria-label={`${here.map((t) => t.label).join(", ")}${on ? ", current tier" : next ? ", next step" : ""}`}>
               <div
                 className={`step ${on && util === null ? "absent" : ""}`}
                 data-state={state}
@@ -262,7 +262,7 @@ function ResetList({ reading, warningMs }: { reading: Reading; warningMs: number
             </span>
             {r.expiresAt ? (
               <span className={`flex items-center gap-1 text-micro ${soon.has(r.id) ? "text-st-warn" : "text-muted-foreground"}`} title={when(r.expiresAt)}>
-                {soon.has(r.id) ? <TriangleAlert className="size-3.5" /> : null}
+                {soon.has(r.id) ? <TriangleAlert className="size-3.5" role="img" aria-label="Expiring soon" /> : null}
                 expires {relative(r.expiresAt)}
               </span>
             ) : (

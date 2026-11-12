@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { useId, useRef, useState } from "preact/hooks";
+import { useEffect, useId, useRef, useState } from "preact/hooks";
 import { FolderOpen } from "lucide-preact";
 import { api, openExternal } from "./api";
 import { day, fromDay } from "./format";
@@ -45,6 +45,15 @@ export function SettingsSheet({
   // The threshold is edited as text too, so the field can be emptied while typing.
   const [threshold, setThreshold] = useState(String(view.threshold));
   const [formError, setFormError] = useState("");
+  // The field the error belongs to, so it is announced with that field and
+  // focus lands on it (WCAG 3.3.1).
+  const [errorField, setErrorField] = useState("");
+  const errorId = useId();
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (!formError || !errorField) return;
+    formRef.current?.querySelector<HTMLElement>(`[name="${errorField}"]`)?.focus();
+  }, [formError, errorField]);
   // "" and a missing field are the same thing here: typing into an optional
   // field and emptying it again is not an edit.
   const settled = (acc: Account) => JSON.stringify(acc, (_key, value: unknown) => (value === "" ? undefined : value));
@@ -73,20 +82,30 @@ export function SettingsSheet({
           <SheetDescription className="break-all font-mono text-micro">{view.account.agentHome}</SheetDescription>
         </SheetHeader>
         <form
+          ref={formRef}
           className="flex min-h-0 flex-1 flex-col"
+          aria-busy={busy === "save" || busy === "replace" || undefined}
           onSubmit={(e) => {
             e.preventDefault();
             const dates = { activatedAt: fromDay(activated), renewalAt: fromDay(renewal) };
-            if ((activated && !dates.activatedAt) || (renewal && !dates.renewalAt)) {
-              setFormError("Activated and Renewal each need a real date as YYYY-MM-DD, or nothing.");
+            if (activated && !dates.activatedAt) {
+              setErrorField("activatedAt");
+              setFormError("Activated needs a real date as YYYY-MM-DD, or nothing.");
+              return;
+            }
+            if (renewal && !dates.renewalAt) {
+              setErrorField("renewalAt");
+              setFormError("Renewal needs a real date as YYYY-MM-DD, or nothing.");
               return;
             }
             const usageThreshold = Number(threshold);
             if (!(usageThreshold >= 1 && usageThreshold <= 100)) {
+              setErrorField("usageThreshold");
               setFormError("The spend threshold is a number from 1 to 100.");
               return;
             }
             setFormError("");
+            setErrorField("");
             onSave({ ...form, ...dates, usageThreshold });
           }}
         >
@@ -99,9 +118,9 @@ export function SettingsSheet({
                   {view.tiers.map((t) => <NativeSelectOption key={t.id} value={t.id}>{t.label}</NativeSelectOption>)}
                 </NativeSelect>
               </Field>
-              <Field label="Activated"><DayInput value={activated} onChange={setActivated} /></Field>
-              <Field label="Renewal"><DayInput value={renewal} onChange={setRenewal} /></Field>
-              <Field label="Spend threshold, %"><Input inputMode="numeric" value={threshold} onInput={(e) => setThreshold(e.currentTarget.value)} /></Field>
+              <Field label="Activated"><DayInput name="activatedAt" invalid={errorField === "activatedAt"} describedBy={errorField === "activatedAt" ? errorId : undefined} value={activated} onChange={setActivated} /></Field>
+              <Field label="Renewal"><DayInput name="renewalAt" invalid={errorField === "renewalAt"} describedBy={errorField === "renewalAt" ? errorId : undefined} value={renewal} onChange={setRenewal} /></Field>
+              <Field label="Spend threshold, %"><Input name="usageThreshold" inputMode="numeric" aria-invalid={errorField === "usageThreshold" || undefined} aria-describedby={errorField === "usageThreshold" ? errorId : undefined} value={threshold} onInput={(e) => setThreshold(e.currentTarget.value)} /></Field>
               <Field label="Agent binary"><Input placeholder="the one on PATH" value={form.agentBin || ""} onInput={(e) => setForm({ ...form, agentBin: e.currentTarget.value })} /></Field>
             </div>
             <p className="-mt-2 text-micro leading-prose text-muted-foreground">A good poll replaces the tier, and the dates where the provider states them, with the provider's own.</p>
@@ -143,7 +162,7 @@ export function SettingsSheet({
           {errorLine || formError ? (
             <div className="flex flex-col gap-2 border-t px-4 py-3">
               {errorLine}
-              {formError ? <p className="text-micro text-destructive" role="alert">{formError}</p> : null}
+              {formError ? <p id={errorId} className="text-micro text-destructive" role="alert">{formError}</p> : null}
             </div>
           ) : null}
           <SheetFooter className="flex-row justify-between border-t">
@@ -302,12 +321,13 @@ export function AddDialog({
  */
 function CredentialInput({ label, value, required, onChange }: { label: string; value: string; required?: boolean; onChange: (path: string) => void }) {
   const id = useId();
+  const failureId = useId();
   const [failure, setFailure] = useState("");
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id} className="font-normal text-muted-foreground">{label}</Label>
       <div className="flex gap-2">
-        <Input id={id} className="font-mono text-micro" required={required} value={value} onInput={(e) => onChange(e.currentTarget.value)} />
+        <Input id={id} className="font-mono text-micro" required={required} aria-invalid={failure ? true : undefined} aria-describedby={failure ? failureId : undefined} value={value} onInput={(e) => onChange(e.currentTarget.value)} />
         <Button
           type="button"
           variant="outline"
@@ -326,7 +346,7 @@ function CredentialInput({ label, value, required, onChange }: { label: string; 
           Browse
         </Button>
       </div>
-      {failure ? <p className="text-micro text-destructive" role="alert">The file dialog did not open: {failure}. Type the path instead.</p> : null}
+      {failure ? <p id={failureId} className="text-micro text-destructive" role="alert">The file dialog did not open: {failure}. Type the path instead.</p> : null}
     </div>
   );
 }
@@ -335,14 +355,17 @@ function CredentialInput({ label, value, required, onChange }: { label: string; 
  * A day as YYYY-MM-DD text. Not type="date": WebKitGTK draws an empty date
  * input as today's date, which reads as a value that was never entered.
  */
-function DayInput({ value, onChange }: { value: string; onChange: (day: string) => void }) {
+function DayInput({ name, value, invalid, describedBy, onChange }: { name: string; value: string; invalid?: boolean; describedBy?: string; onChange: (day: string) => void }) {
   return (
     <Input
+      name={name}
       type="text"
       inputMode="numeric"
       placeholder="YYYY-MM-DD"
       pattern="\d{4}-\d{2}-\d{2}"
       title="A date as YYYY-MM-DD"
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
       value={value}
       onInput={(e) => onChange(e.currentTarget.value.replace(/^(\d{4}-\d{2}-\d{2})[T ].*/, "$1"))}
     />
