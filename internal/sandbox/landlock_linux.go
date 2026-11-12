@@ -49,11 +49,11 @@ func confine(writable string) error {
 		return err
 	}
 	handled := landlockAccess(abi)
-	// The kernel rejects a size other than the one it knows for this ABI
-	// (EINVAL below it, E2BIG above it), so the literal 8 that matched the
-	// original one-field struct fails once handled_access_net and scoped
-	// exist. The trailing fields are zero, which handles nothing.
-	attr := unix.LandlockRulesetAttr{Access_fs: handled}
+	// The size is the struct's own. The kernel refuses one below the size it
+	// knows (EINVAL) and accepts a larger one only when the extra fields are
+	// zero (E2BIG otherwise). Every field but handled_access_fs is zero, which
+	// handles nothing more.
+	attr := unix.LandlockRulesetAttr{Handled_access_fs: handled}
 	fd, _, errno := unix.Syscall(unix.SYS_LANDLOCK_CREATE_RULESET, uintptr(unsafe.Pointer(&attr)), unsafe.Sizeof(attr), 0)
 	if errno != 0 {
 		return fmt.Errorf("landlock ruleset: %w", errno)

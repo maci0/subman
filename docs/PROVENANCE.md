@@ -479,3 +479,19 @@ Changes: `model.Reading` gains `nextPlan`, `nextPlanAt`, `ends`, `price`, `nextP
 Verified: `go test -race ./...`, `go vet ./...`, `bun test`, `bun run build`, `oxlint`, `vnu --format text` on `frontend/dist/index.html`, `git diff --check`. Live polls with the built CLI: the Codex account shows renewal 2026-11-13, next Pro Lite from 2026-11-13 at 138.00 SGD/month, price 690.00 SGD/month; one Grok account SuperGrok Heavy, renewal 2026-11-17, next Plus; the legacy-billing Grok account SuperGrok Heavy, renewal 2026-11-18. Rendered in Chromium with a mock carrying these fields, light and dark: the board, the account view, and a refused price in Edit (field marked invalid and focused).
 
 Not verified: the WebKitGTK window; a Codex cancellation or discount and a Grok cancellation against a real account (covered by unit tests on the observed field names only).
+
+## 2026-11-13 dependency updates landed, release 0.2.0
+
+The operator asked for every branch merged into `main` and a new minor release. Dependabot had opened twelve branches. Merged one by one they conflict on `go.mod`, `go.sum`, and `bun.lock`, so the same versions were applied in one change:
+
+- Go: `github.com/godbus/dbus/v5` 5.2.4, `github.com/wailsapp/wails/v2` 2.17.1, `golang.org/x/mod` 0.42.0, `golang.org/x/sys` 0.50.0, `golang.org/x/term` 0.47.0, then `go mod tidy`. The `go` line stays 1.27.3.
+- `golang.org/x/sys` 0.50.0 renamed `LandlockRulesetAttr.Access_fs` to `Handled_access_fs` and gave the struct six fields. The kernel accepts the larger size because the added fields are zero (`copy_struct_from_user`); the comment at `internal/sandbox/landlock_linux.go` now says so.
+- Frontend: `typescript` 7.0.2 and `vite` 8.3.7. TypeScript 7 removed `baseUrl` (every `paths` entry was already `./`-relative), no longer loads `@types/*` on its own, and checks side-effect imports, so `tsconfig.json` drops `baseUrl` and sets `"types": ["bun", "vite/client"]`.
+- Actions in `release.yml`, pinned by commit as before: `actions/checkout` 7.0.1, `actions/setup-go` 7.0.0, `actions/cache` 6.1.0, `actions/upload-artifact` 7.0.2, `actions/download-artifact` 8.0.2. Download still takes `path` with `merge-multiple`.
+- README's build line stamped `-X main.version`, a variable that does not exist since the release number moved to `main.release`; a build from it reported `dev`. It now stamps `main.release=0.2.0`.
+
+The release is 0.2.0, not 0.1.3, because it adds the plan at renewal and the price (2026-11-13 entry above).
+
+Verified: `go vet ./...`, `go test -race ./...` (the sandbox tests create a ruleset with the new struct), `go build -tags production,webkit2_41 .`, `bun run build` (`tsc --noEmit` on 7.0.2, then Vite 8), `bun test`, `oxlint`, `vnu --format text` on `frontend/dist/index.html`, `git diff --check`. With the built CLI, `accounts test` on the Codex account passed under Landlock.
+
+Not verified before the tag: the release workflow on the new action majors, which runs only on a tag push.

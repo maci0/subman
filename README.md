@@ -63,7 +63,7 @@ toolchain the `go` line names.
 ```bash
 cd frontend && bun install --frozen-lockfile && bun run build && cd ..
 GOTOOLCHAIN=go1.27.3 go build -buildvcs=false -trimpath -buildmode=pie \
-  -ldflags "-s -w -X main.version=0.1.2 -linkmode=external -extldflags=-Wl,-z,relro,-z,now" \
+  -ldflags "-s -w -X main.release=0.2.0 -linkmode=external -extldflags=-Wl,-z,relro,-z,now" \
   -tags production,webkit2_41 -o subman .
 ```
 
