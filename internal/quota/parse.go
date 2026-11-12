@@ -417,25 +417,48 @@ func parseAntigravity(obj map[string]any, now time.Time) model.Reading {
 	return r
 }
 
-// matchTier picks the tier whose label or id appears in the plan string.
-// The highest rank wins, so "Pro Lite" does not collapse into "Pro" when
-// both are present, and "Ultra" beats "Max".
+// matchTier picks the tier whose label or id appears in the plan string as a
+// whole word, so "pro" does not match inside "prolite". The highest rank
+// wins, and at the same rank the longer name wins, so "Pro Lite" does not
+// collapse into "Pro" when both are present, and "Ultra" beats "Max".
 func matchTier(p model.Provider, plan string) string {
 	hay := fold(plan)
 	var best model.Tier
 	found := false
 	for _, t := range model.Tiers(p) {
-		if strings.Contains(hay, fold(t.ID)) || strings.Contains(hay, fold(t.Label)) {
-			if !found || t.Rank > best.Rank || len(t.Label) > len(best.Label) {
-				best = t
-				found = true
-			}
+		if !mentions(hay, fold(t.ID)) && !mentions(hay, fold(t.Label)) {
+			continue
+		}
+		if !found || t.Rank > best.Rank || (t.Rank == best.Rank && len(t.Label) > len(best.Label)) {
+			best = t
+			found = true
 		}
 	}
 	if !found {
 		return ""
 	}
 	return best.ID
+}
+
+// mentions reports whether needle occurs in hay bounded by non-letters, so
+// one tier's id is not found inside a longer tier's id.
+func mentions(hay, needle string) bool {
+	if needle == "" {
+		return false
+	}
+	h, n := []rune(hay), []rune(needle)
+	for i := 0; i+len(n) <= len(h); i++ {
+		if string(h[i:i+len(n)]) != needle {
+			continue
+		}
+		before := i == 0 || !unicode.IsLetter(h[i-1])
+		end := i + len(n)
+		after := end == len(h) || !unicode.IsLetter(h[end])
+		if before && after {
+			return true
+		}
+	}
+	return false
 }
 
 func asMap(v any) map[string]any {

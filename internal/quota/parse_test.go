@@ -53,6 +53,17 @@ func TestParseClaudePlanFromCredentialFields(t *testing.T) {
 	if got := matchTier(model.ProviderClaude, "İ pro"); got != "pro" {
 		t.Fatalf("dotted capital I: %q", got)
 	}
+	// "pro" is a prefix of "prolite", and both are Codex tiers of one rank.
+	// The shorter one must not win, or a Pro Lite login is adopted as Pro.
+	if got := matchTier(model.ProviderCodex, "prolite"); got != "prolite" {
+		t.Fatalf("prolite id: %q", got)
+	}
+	if got := matchTier(model.ProviderCodex, "ChatGPT Pro Lite"); got != "prolite" {
+		t.Fatalf("pro lite label: %q", got)
+	}
+	if got := matchTier(model.ProviderCodex, "ChatGPT Pro"); got != "pro" {
+		t.Fatalf("pro label: %q", got)
+	}
 }
 
 func TestParseCodexResetsAndWindows(t *testing.T) {
