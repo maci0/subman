@@ -477,6 +477,11 @@ func startDeviceLogin(ctx context.Context, flow deviceFlow) (*Login, error) {
 				ctx, stop = context.WithTimeout(ctx, time.Duration(device.ExpiresIn)*time.Second)
 				defer stop()
 			}
+			// One timer for the whole poll. time.After in the loop would
+			// leave a timer alive until each interval elapsed, and a
+			// slow_down that lengthens the wait would leak one per poll.
+			timer := time.NewTimer(interval)
+			defer timer.Stop()
 			poll := url.Values{"grant_type": {deviceGrantType}, "device_code": {device.DeviceCode}, "client_id": {flow.clientID}}
 			for {
 				select {
@@ -484,7 +489,7 @@ func startDeviceLogin(ctx context.Context, flow deviceFlow) (*Login, error) {
 					return nil, ctx.Err()
 				case <-closed:
 					return nil, context.Canceled
-				case <-time.After(interval):
+				case <-timer.C:
 				}
 				var tok struct {
 					AccessToken  string `json:"access_token"`
@@ -495,9 +500,11 @@ func startDeviceLogin(ctx context.Context, flow deviceFlow) (*Login, error) {
 				oauthErr, err := postLogin(ctx, discovery.TokenEndpoint, "application/x-www-form-urlencoded", userAgent, strings.NewReader(poll.Encode()), &tok)
 				switch {
 				case oauthErr == "authorization_pending":
+					timer.Reset(interval)
 					continue
 				case oauthErr == "slow_down":
 					interval += flow.minPoll
+					timer.Reset(interval)
 					continue
 				case err != nil:
 					return nil, err

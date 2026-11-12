@@ -51,6 +51,9 @@ func Run(ctx context.Context, cmd Command) ([]byte, error) {
 	}
 	argv := append([]string{bin}, cmd.Args...)
 	child := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	// The helper execs the agent, which may itself start children. On Linux
+	// the child is a process group so a cancelled context kills all of them.
+	killOnCancel(child)
 	child.Dir = cmd.Dir
 	if child.Dir == "" {
 		child.Dir = cmd.Writable

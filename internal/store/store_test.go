@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/maci0/subman/internal/model"
@@ -191,19 +192,58 @@ func TestHistoryNewestFirst(t *testing.T) {
 		}
 	}
 	h, err := root.History(acc.ID)
-	if err != nil || len(h) != 2 || h[0].To != "ultra" || h[0].Error != "exit status 3" || h[1].To != "max" {
+	if err != nil || len(h) != 2 {
 		t.Fatalf("%+v %v", h, err)
+	}
+	if h[0].To != "ultra" || h[0].Error != "exit status 3" || h[1].To != "max" {
+		t.Fatalf("%+v", h)
 	}
 
 	// Far more than maxHistory, each line short, so the tail read is what is tested.
+	// Written straight to the file: AppendHistory now trims, which would leave
+	// nothing past the window for the tail read to skip.
+	var body strings.Builder
 	for i := range 5000 {
-		if err := root.AppendHistory(acc.ID, model.HistoryEntry{From: "pro", To: fmt.Sprintf("t%d", i)}); err != nil {
-			t.Fatal(err)
-		}
+		fmt.Fprintf(&body, "{\"from\":\"pro\",\"to\":\"t%d\"}\n", i)
+	}
+	if err := os.WriteFile(filepath.Join(root.Path, "accounts", acc.ID, "history.jsonl"), []byte(body.String()), 0o600); err != nil {
+		t.Fatal(err)
 	}
 	h, err = root.History(acc.ID)
 	if err != nil || len(h) != 50 || h[0].To != "t4999" || h[49].To != "t4950" {
 		t.Fatalf("len %d first %+v err %v", len(h), h[0], err)
+	}
+}
+
+func TestHistoryFileStaysBounded(t *testing.T) {
+	root, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := filepath.Join(t.TempDir(), "c.json")
+	if err := os.WriteFile(src, []byte(`{}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	acc, err := root.Import(model.ImportRequest{Name: "c", Provider: model.ProviderClaude, CredentialPath: src, TierID: "pro"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < maxHistory+10; i++ {
+		if err := root.AppendHistory(acc.ID, model.HistoryEntry{From: "pro", To: "max"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h, err := root.History(acc.ID)
+	if err != nil || len(h) != maxHistory {
+		t.Fatalf("returned %d %v", len(h), err)
+	}
+	body, err := os.ReadFile(filepath.Join(root.Path, "accounts", acc.ID, "history.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimRight(string(body), "\n"), "\n")
+	if len(lines) != maxHistory {
+		t.Fatalf("file kept %d lines", len(lines))
 	}
 }
 

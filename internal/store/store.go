@@ -381,7 +381,42 @@ func (r *Root) AppendHistory(id string, entry model.HistoryEntry) error {
 		f.Close()
 		return err
 	}
-	return f.Close()
+	if err := f.Close(); err != nil {
+		return err
+	}
+	// History only returns maxHistory lines, but the file was append-only, so
+	// a long-lived account grew it without bound. The line above is durable;
+	// a trim that fails is retried on the next append and is not this entry's
+	// error, or a saved step would be reported as unrecorded.
+	_ = trimHistory(filepath.Join(dir, "history.jsonl"))
+	return nil
+}
+
+// trimHistory rewrites path down to its last maxHistory lines once it has
+// grown past that. Lines that are not JSON are dropped, matching History,
+// which skips them.
+func trimHistory(path string) error {
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var kept []string
+	for _, line := range strings.Split(strings.TrimRight(string(body), "\n"), "\n") {
+		if line == "" || !json.Valid([]byte(line)) {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	if len(kept) <= maxHistory {
+		return nil
+	}
+	kept = kept[len(kept)-maxHistory:]
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(strings.Join(kept, "\n")+"\n"), filePerm); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 // History returns the account's last maxHistory plan changes, newest first.
