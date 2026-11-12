@@ -16,8 +16,11 @@ import (
 )
 
 const (
-	maxBody  = 4 << 20
-	claudeUA = "claude-code/2.1.251"
+	maxBody = 4 << 20
+	// claudeUA and claudeApp are how the Claude Code CLI names itself. The
+	// usage endpoint only lists banked resets for that surface.
+	claudeUA  = "claude-cli/2.1.322 (external, cli)"
+	claudeApp = "cli"
 
 	grokBillingURL = "https://cli-chat-proxy.grok.com/v1/billing"
 	userAgent      = "subman/0.1"
@@ -137,6 +140,7 @@ func fetchClaude(ctx context.Context, cred map[string]any, now time.Time) model.
 		"anthropic-beta":    "oauth-2025-04-20",
 		"anthropic-version": "2023-06-01",
 		"User-Agent":        claudeUA,
+		"x-app":             claudeApp,
 	})
 	if err != nil {
 		return fail("net", now)
@@ -146,6 +150,9 @@ func fetchClaude(ctx context.Context, cred map[string]any, now time.Time) model.
 	}
 	r := Parse(model.ProviderClaude, body, now)
 	claudeProfile(ctx, token, &r, now)
+	if r.OK {
+		claudeResets(ctx, token, &r)
+	}
 	if r.Plan == "" {
 		r.Plan = claudePlan(asString(oauth["subscriptionType"]), asString(oauth["rateLimitTier"]))
 		r.TierID = matchTier(model.ProviderClaude, r.Plan)

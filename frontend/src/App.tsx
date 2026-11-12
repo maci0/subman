@@ -971,7 +971,9 @@ function ResetList({ reading }: { reading: Reading }) {
           <li key={r.id} className="grid grid-cols-[1fr_auto] items-baseline gap-4 border-t py-1.5">
             <span>
               {r.title || r.type}
-              {r.title && r.type ? <span className="text-[13px] text-muted-foreground"> ({r.type})</span> : null}
+              <span className="text-[13px] text-muted-foreground">
+                {r.title && r.type ? ` (${r.type})` : ""}{r.left > 1 ? `, ${r.left} left` : ""}{r.applies ? "" : ", for a limit that is not the fullest"}
+              </span>
             </span>
             {r.expiresAt ? (
               <span className={`flex items-center gap-1 text-[13px] ${soon.has(r.id) ? "text-warn" : "text-muted-foreground"}`} title={when(r.expiresAt)}>

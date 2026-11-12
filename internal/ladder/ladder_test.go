@@ -153,7 +153,7 @@ func TestResetOnlyAtTheHighestTier(t *testing.T) {
 	if !ShouldReset(a, top) {
 		t.Fatal("no reset at the highest tier")
 	}
-	top.Credits.Resets = []model.ResetCredit{{ID: "soonest"}, {ID: "later"}}
+	top.Credits.Resets = []model.ResetCredit{{ID: "other-limit"}, {ID: "soonest", Applies: true}, {ID: "later", Applies: true}}
 	if st, step := Decide(Input{Account: a, Reading: top}); step == nil || !step.Reset || step.From != "ultra" || step.To != "ultra" || step.CreditID != "soonest" || st.Phase == model.PhaseWaiting {
 		t.Fatalf("with a reset banked the ladder should use it at the top, got %+v %+v", st, step)
 	}

@@ -175,6 +175,12 @@ export interface ResetCredit {
   status?: string;
   grantedAt?: string;
   expiresAt?: string;
+  /** How many uses are left; one entry can hold several. */
+  left: number;
+  /** The limits it clears, in the provider's own words. */
+  clears?: string[];
+  /** It can be used now on the limit that is fullest. */
+  applies: boolean;
 }
 
 /** One proposed step toward spending every paid window in full, and when to take it. */

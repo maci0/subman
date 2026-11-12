@@ -334,3 +334,22 @@ Still open, and not fixable from here: Codex has not been signed in to through t
 3. Run 43180317823 passed every job and published https://github.com/maci0/subman/releases/tag/v0.1.0 with the six binaries and `SHA256SUMS`.
 
 Verified: `subman-linux-amd64` downloaded from the release matched `SHA256SUMS`, printed `0.1.0`, listed this machine's accounts, and `update --check` said "up to date". The macOS and Windows binaries were built by the workflow and not run here.
+
+## 2026-11-12 Claude's banked resets
+
+The operator said the reset counts were wrong: they hold one Claude reset to spend and Fable resets. They were right, and the previous entry's "Claude's payload carries no reset credit" was wrong. It carries none unless asked the way the Claude Code CLI asks.
+
+How it was found: strings in the installed CLI (`~/.local/share/claude/versions/2.1.322`) name a reset programme, `cedar_ember`, and show the CLI reading `/api/oauth/usage?cedar_ember=1&skip_spend=1` and claiming with `POST /api/organizations/<org>/reset_rate_limits` and a body of `program`, `grant_id`, `request_id`. Asked with subman's old User-Agent, the status came back `eligible: false, ineligible_reason: "surface"`. Asked as the CLI names itself (`claude-cli/2.1.322 (external, cli)`, `x-app: cli`), it listed the grants.
+
+What this machine's two Claude accounts hold, from that call:
+
+- one has "One full limit reset (November 2026)", weekly, 1 left, ends 2026-12-10, clearing `seven_day` and `seven_day_overage_included`, and a "New model launch: one Fable reset" grant, 1 left, ends 2027-03-09, clearing `seven_day_overage_included`;
+- the other has spent its weekly one and holds two Fable grants.
+
+Changed:
+
+- `quota.claudeResets` itemises the grants with uses left into `Credits.Resets`, with `ResetCount` the uses left and `ResetApplies` those that apply. A grant applies when it is usable now, not paused, and clears the limit that is fullest by the grant's own `percent_used`. `ResetCredit` gained `Left`, `Clears`, and `Applies`.
+- `claudeUA` is the CLI's own string and `x-app: cli` goes with it, on the usage, profile, and claim calls.
+- `quota.RedeemReset` claims a Claude grant by id. The organization comes from the login, or from the profile for a copied Claude Code file. The ladder's reset step names the first grant that applies, which is the soonest to expire of those.
+
+Verified: `TestClaudeItemisesBankedResets`, `TestRedeemClaudeReset`, `go test -race ./...`, `bun test`, `bun run build`, `vnu` (no errors). From the installed binary, `accounts poll` lists the grants above with their labels and expiries, 2 resets with 1 usable on the first account. Against the live claim endpoint: the second account's already-spent weekly grant was claimed on purpose and the answer was `already_used`; a poll afterwards showed both of its Fable grants still at 1 left. A claim that spends a grant has not been run: that is the operator's to confirm in Run ladder.

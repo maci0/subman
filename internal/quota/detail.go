@@ -28,6 +28,7 @@ func claudeProfile(ctx context.Context, token string, r *model.Reading, now time
 		"anthropic-beta":    "oauth-2025-04-20",
 		"anthropic-version": "2023-06-01",
 		"User-Agent":        claudeUA,
+		"x-app":             claudeApp,
 	})
 	if err != nil || status != 200 {
 		return
@@ -95,7 +96,7 @@ func codexResets(ctx context.Context, token string, headers map[string]string, r
 		}
 		resets = append(resets, model.ResetCredit{
 			ID: c.ID, Type: c.ResetType, Title: trimLabel(c.Title), Status: c.Status,
-			GrantedAt: isoTime(c.GrantedAt), ExpiresAt: isoTime(c.ExpiresAt),
+			GrantedAt: isoTime(c.GrantedAt), ExpiresAt: isoTime(c.ExpiresAt), Left: 1, Applies: true,
 		})
 	}
 	sort.SliceStable(resets, func(i, j int) bool {
@@ -103,4 +104,85 @@ func codexResets(ctx context.Context, token string, headers map[string]string, r
 		return a != nil && (b == nil || a.Before(*b))
 	})
 	r.Credits.Resets = resets
+}
+
+// claudeResetProgram is the name Claude gives its banked-reset programme in
+// the usage query and in the claim body.
+const claudeResetProgram = "cedar_ember"
+
+// maxResetTitle caps a reset's title. The providers' own labels are whole
+// sentences, longer than an account name.
+const maxResetTitle = 160
+
+// claudeResets itemises Claude's banked resets. The usage endpoint lists
+// them only when asked with the programme flag and as the CLI surface; the
+// query and the fields are the Claude Code CLI's own. A reset "applies" when
+// it can be used now and clears the limit that is fullest.
+func claudeResets(ctx context.Context, token string, r *model.Reading) {
+	status, body, err := get(ctx, claudeUsageURL+"?"+claudeResetProgram+"=1&skip_spend=1", token, map[string]string{
+		"anthropic-beta":    "oauth-2025-04-20",
+		"anthropic-version": "2023-06-01",
+		"User-Agent":        claudeUA,
+		"x-app":             claudeApp,
+	})
+	if err != nil || status != 200 {
+		return
+	}
+	var doc struct {
+		Status *struct {
+			Eligible bool `json:"eligible"`
+			Grants   []struct {
+				ID          string             `json:"id"`
+				Label       string             `json:"label"`
+				ResetsLeft  int                `json:"resets_left"`
+				EndsAt      any                `json:"ends_at"`
+				StartsAt    any                `json:"starts_at"`
+				Clears      []string           `json:"clears"`
+				Paused      bool               `json:"paused"`
+				UsableNow   bool               `json:"usable_now"`
+				Type        string             `json:"type"`
+				PercentUsed map[string]float64 `json:"percent_used"`
+			} `json:"grants"`
+		} `json:"cedar_ember"`
+	}
+	if json.Unmarshal(body, &doc) != nil || doc.Status == nil || !doc.Status.Eligible {
+		return
+	}
+	resets := []model.ResetCredit{}
+	total, applies := 0, 0
+	for _, g := range doc.Status.Grants {
+		if g.ResetsLeft < 1 {
+			continue
+		}
+		// The fullest of the limits the provider reports for this grant.
+		fullest, most := "", -1.0
+		for limit, pct := range g.PercentUsed {
+			if pct > most || (pct == most && limit < fullest) {
+				fullest, most = limit, pct
+			}
+		}
+		clearsFullest := false
+		for _, limit := range g.Clears {
+			clearsFullest = clearsFullest || limit == fullest
+		}
+		title := g.Label
+		if len(title) > maxResetTitle {
+			title = title[:maxResetTitle]
+		}
+		credit := model.ResetCredit{
+			ID: g.ID, Type: g.Type, Title: title, GrantedAt: isoTime(g.StartsAt), ExpiresAt: isoTime(g.EndsAt),
+			Left: g.ResetsLeft, Clears: g.Clears, Applies: g.UsableNow && !g.Paused && clearsFullest,
+		}
+		resets = append(resets, credit)
+		total += g.ResetsLeft
+		if credit.Applies {
+			applies += g.ResetsLeft
+		}
+	}
+	sort.SliceStable(resets, func(i, j int) bool {
+		a, b := resets[i].ExpiresAt, resets[j].ExpiresAt
+		return a != nil && (b == nil || a.Before(*b))
+	})
+	r.Credits.Resets = resets
+	r.Credits.ResetCount, r.Credits.ResetApplies = &total, &applies
 }

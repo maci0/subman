@@ -189,9 +189,13 @@ func resetStep(in Input, tierID string) *model.Step {
 		return nil
 	}
 	s := &model.Step{From: tierID, To: tierID, Reset: true, Reason: "highest tier is spent and a reset is banked; using the reset"}
-	// The soonest to expire is listed first, and is the one to spend.
-	if resets := in.Reading.Credits.Resets; len(resets) > 0 {
-		s.CreditID = resets[0].ID
+	// Resets are listed soonest to expire first, so the first that applies
+	// is the one to spend. With none itemised the provider picks.
+	for _, r := range in.Reading.Credits.Resets {
+		if r.Applies {
+			s.CreditID = r.ID
+			break
+		}
 	}
 	return s
 }

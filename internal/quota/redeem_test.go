@@ -58,8 +58,62 @@ func TestRedeemReset(t *testing.T) {
 			t.Errorf("%s: %v", code, err)
 		}
 	}
-	// Only Codex has the call.
-	if err := RedeemReset(context.Background(), model.Account{Provider: model.ProviderClaude, CredentialFile: cred}, ""); err == nil {
-		t.Fatal("a Claude account was sent a redeem")
+	// A provider with no banked resets has no call.
+	if err := RedeemReset(context.Background(), model.Account{Provider: model.ProviderGrok, CredentialFile: cred}, ""); err == nil || !strings.Contains(err.Error(), "no call") {
+		t.Fatal("a Grok account was sent a redeem:", err)
+	}
+}
+
+func TestRedeemClaudeReset(t *testing.T) {
+	var got map[string]string
+	var path, agent, app string
+	answer := `{"result":"reset","resets_left":0}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			io.WriteString(w, `{"organization":{"uuid":"org-from-profile"}}`)
+			return
+		}
+		path, agent, app = r.URL.Path, r.Header.Get("User-Agent"), r.Header.Get("x-app")
+		body, _ := io.ReadAll(r.Body)
+		got = map[string]string{}
+		if err := json.Unmarshal(body, &got); err != nil {
+			t.Errorf("request body is not JSON: %s", body)
+		}
+		io.WriteString(w, answer)
+	}))
+	defer srv.Close()
+	oldClaim, oldProfile := claudeClaimURL, claudeProfileURL
+	claudeClaimURL, claudeProfileURL = srv.URL+"/api/organizations/%s/reset_rate_limits", srv.URL+"/profile"
+	defer func() { claudeClaimURL, claudeProfileURL = oldClaim, oldProfile }()
+
+	dir := t.TempDir()
+	write := func(name, body string) model.Account {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return model.Account{Provider: model.ProviderClaude, CredentialFile: p}
+	}
+	signedIn := write("a.json", `{"access_token":"tok","organization_uuid":"org-1"}`)
+	if err := RedeemReset(context.Background(), signedIn, "full-reset-2611"); err != nil {
+		t.Fatal(err)
+	}
+	if path != "/api/organizations/org-1/reset_rate_limits" || got["program"] != "cedar_ember" || got["grant_id"] != "full-reset-2611" || len(got["request_id"]) != 32 || agent != claudeUA || app != claudeApp {
+		t.Fatalf("claim: path %q body %v agent %q app %q", path, got, agent, app)
+	}
+	// A copied Claude Code file names no organization; the profile does.
+	copied := write("b.json", `{"claudeAiOauth":{"accessToken":"tok"}}`)
+	if err := RedeemReset(context.Background(), copied, "g1"); err != nil || path != "/api/organizations/org-from-profile/reset_rate_limits" {
+		t.Fatalf("organization from the profile: %v, path %q", err, path)
+	}
+	// Claude will not pick a reset itself.
+	if err := RedeemReset(context.Background(), signedIn, ""); err == nil || !strings.Contains(err.Error(), "named") {
+		t.Fatalf("no grant named: %v", err)
+	}
+	for result, want := range map[string]string{"already_used": "already used", "not_limited": "no limit", "cooldown": "too recently", "ineligible": "ineligible"} {
+		answer = `{"result":"` + result + `","reason":"tier"}`
+		if err := RedeemReset(context.Background(), signedIn, "g1"); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: %v", result, err)
+		}
 	}
 }

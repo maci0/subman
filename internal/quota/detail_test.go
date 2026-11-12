@@ -109,3 +109,51 @@ func TestGrokReadsEachProductWithThePeriodReset(t *testing.T) {
 		t.Fatalf("grok states no renewal and no tier: %+v", r)
 	}
 }
+
+// Claude lists banked resets only for the CLI surface and with the programme
+// flag. Spent ones are left out, the soonest to expire comes first, and a
+// reset applies only when it clears the limit that is fullest.
+func TestClaudeItemisesBankedResets(t *testing.T) {
+	var query, agent, app string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query, agent, app = r.URL.RawQuery, r.Header.Get("User-Agent"), r.Header.Get("x-app")
+		io.WriteString(w, `{"cedar_ember":{"eligible":true,"at_limit":true,"grants":[
+			{"id":"launch-fable","label":"New model launch: one Fable reset","resets_left":1,"ends_at":"2027-03-09T07:59:00+00:00","clears":["seven_day_overage_included"],"usable_now":true,"type":"full","percent_used":{"seven_day":100,"seven_day_overage_included":56}},
+			{"id":"full-reset-2611","label":"One full limit reset (November 2026)","resets_left":1,"ends_at":"2026-12-10T22:00:00+00:00","clears":["seven_day","seven_day_overage_included"],"usable_now":true,"type":"weekly","percent_used":{"seven_day":100,"seven_day_overage_included":56}},
+			{"id":"spent","label":"Used up","resets_left":0,"ends_at":"2026-12-10T22:00:00+00:00","clears":["seven_day"],"usable_now":false,"type":"weekly","percent_used":{"seven_day":100}},
+			{"id":"paused","label":"On hold","resets_left":2,"ends_at":null,"clears":["seven_day"],"usable_now":true,"paused":true,"type":"weekly","percent_used":{"seven_day":100}}]}}`)
+	}))
+	defer srv.Close()
+	old := claudeUsageURL
+	claudeUsageURL = srv.URL + "/usage"
+	defer func() { claudeUsageURL = old }()
+
+	r := model.Reading{OK: true}
+	claudeResets(context.Background(), "tok", &r)
+	if query != "cedar_ember=1&skip_spend=1" || agent != claudeUA || app != claudeApp {
+		t.Fatalf("request: %q %q %q", query, agent, app)
+	}
+	resets := r.Credits.Resets
+	if len(resets) != 3 || resets[0].ID != "full-reset-2611" || resets[1].ID != "launch-fable" || resets[2].ID != "paused" {
+		t.Fatalf("resets %+v", resets)
+	}
+	// The weekly limit is the full one: the weekly reset applies, the Fable one and the paused one do not.
+	if !resets[0].Applies || resets[1].Applies || resets[2].Applies || resets[0].Type != "weekly" || resets[0].Title != "One full limit reset (November 2026)" || resets[2].Left != 2 {
+		t.Fatalf("applies %+v", resets)
+	}
+	if *r.Credits.ResetCount != 4 || *r.Credits.ResetApplies != 1 || r.Credits.UsableResets() != 1 {
+		t.Fatalf("counts %+v", r.Credits)
+	}
+
+	// An account the programme does not cover reports nothing, not zero.
+	srv2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		io.WriteString(w, `{"cedar_ember":{"eligible":false,"ineligible_reason":"tier"}}`)
+	}))
+	defer srv2.Close()
+	claudeUsageURL = srv2.URL
+	r = model.Reading{OK: true}
+	claudeResets(context.Background(), "tok", &r)
+	if r.Credits.ResetCount != nil || r.Credits.Resets != nil {
+		t.Fatalf("ineligible account: %+v", r.Credits)
+	}
+}

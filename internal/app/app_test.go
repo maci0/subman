@@ -398,7 +398,7 @@ func TestRunLadderUsesABankedResetAtTheTop(t *testing.T) {
 	full := reading(true, 99)
 	full.TierID, full.PolledAt = "pro", time.Now().UTC()
 	full.Credits.ResetCount = &one
-	full.Credits.Resets = []model.ResetCredit{{ID: "credit-1", Type: "weekly"}}
+	full.Credits.Resets = []model.ResetCredit{{ID: "credit-1", Type: "weekly", Left: 1, Applies: true}}
 	if err := root.PutReading(acc.ID, full); err != nil {
 		t.Fatal(err)
 	}

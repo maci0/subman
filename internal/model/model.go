@@ -369,6 +369,13 @@ type ResetCredit struct {
 	GrantedAt *time.Time `json:"grantedAt,omitempty"`
 	// ExpiresAt is nil for a reset that does not expire.
 	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
+	// Left is how many uses the reset still has. One entry can hold several.
+	Left int `json:"left"`
+	// Clears names the limits this reset clears, in the provider's own words.
+	Clears []string `json:"clears,omitempty"`
+	// Applies is true when the reset can be used now on the limit that is
+	// fullest. A reset for another limit is banked and does not apply.
+	Applies bool `json:"applies"`
 }
 
 // ResetExpiryWarning is how long before a banked reset expires the window
