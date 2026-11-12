@@ -1,7 +1,8 @@
 .gocache/
 .scratch/
 build/bin/
-frontend/dist/
+frontend/dist/*
+!frontend/dist/index.html
 frontend/node_modules/
 frontend/wailsjs/
 data/
