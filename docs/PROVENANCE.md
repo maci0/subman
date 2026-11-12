@@ -275,7 +275,7 @@ Before the commit, the staged files were searched for email addresses, token-sha
 
 `.gitignore` had a bare `subman` line meant for the built binary, which also ignored the `cmd/subman` directory. It is `/subman` now, and `cmd/subman/main.go` is tracked.
 
-No tag was pushed, so the release workflow, which runs on `v*` tags, has still not run. The repository has no LICENSE file.
+No tag was pushed then; see "first release" below for the workflow run.
 
 ## 2026-11-12 local install
 
@@ -324,3 +324,13 @@ Verified: `TestRedeemReset`, `TestRunLadderUsesABankedResetAtTheTop`, the extend
 Also closed: `LICENSE` is MIT, the licence of the sibling tools this one draws on (`quota-widget`, `microagent`, `toktop`), with the same copyright line as `quota-widget`. The empty `web/` directories and their two `.gitignore` lines are gone.
 
 Still open, and not fixable from here: Codex has not been signed in to through the window (its account came from a credential file); no reset with a real expiry has been seen.
+
+## 2026-11-12 first release
+
+`v0.1.0` was tagged and the release workflow ran for the first time. It took three runs; the tag was moved to the fixing commit each time, since no release had been published from it.
+
+1. The test job ran `go test ./...`, which fails on a clean checkout: `main.go` embeds `frontend/dist`, and only the build job makes it. The test job now runs `go test ./internal/... ./cmd/...`. README and AGENTS now say to build the frontend before `go test ./...`.
+2. Both macOS builds failed to link: `Undefined symbols: _OBJC_CLASS_$_UTType`. Wails' darwin dialog code uses UTType from UniformTypeIdentifiers, which the `wails` CLI links and a plain `go build` does not. The compile step sets `CGO_LDFLAGS=-framework UniformTypeIdentifiers` for darwin.
+3. Run 43180317823 passed every job and published https://github.com/maci0/subman/releases/tag/v0.1.0 with the six binaries and `SHA256SUMS`.
+
+Verified: `subman-linux-amd64` downloaded from the release matched `SHA256SUMS`, printed `0.1.0`, listed this machine's accounts, and `update --check` said "up to date". The macOS and Windows binaries were built by the workflow and not run here.
