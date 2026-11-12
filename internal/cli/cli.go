@@ -142,7 +142,7 @@ Usage:
 Commands:
   accounts list                 list subscriptions
   accounts show <id>            one subscription, with its last reading
-  accounts add --name ...       sign in, or copy a credential, into a new subscription
+  accounts add --provider P     sign in, or copy a credential, into a new subscription
   accounts set <id> --...       change a subscription's settings
   accounts remove <id>          delete a subscription and its credential copy
   accounts poll [<id>]          fetch usage

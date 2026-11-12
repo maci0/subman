@@ -276,3 +276,7 @@ Before the commit, the staged files were searched for email addresses, token-sha
 `.gitignore` had a bare `subman` line meant for the built binary, which also ignored the `cmd/subman` directory. It is `/subman` now, and `cmd/subman/main.go` is tracked.
 
 No tag was pushed, so the release workflow, which runs on `v*` tags, has still not run. The repository has no LICENSE file.
+
+## 2026-11-12 local install
+
+Asked to update the local install. `~/.local/bin/subman` was a build from 2026-11-11 16:51 with none of the later commands. It was copied to `~/.cache/subman/subman-before-2026-11-12`, and a `-trimpath -tags production,webkit2_41` build of this tree was moved into its place. From the installed binary: `subman version` prints 0.1.0, `accounts list` shows the Codex account with its detected renewal, and `accounts test` passed under Landlock with nothing beside the binary. The help line for `accounts add` still named `--name`, which is optional now; it names `--provider`.
