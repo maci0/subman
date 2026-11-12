@@ -71,7 +71,10 @@ func Decide(in Input) (model.LadderState, *model.Step) {
 	}
 
 	// A renewal in the future while we are parked at the bottom means hold.
-	if st.Phase == model.PhaseWaiting {
+	// Parked is only true while a poll confirms the lowest tier: a newer
+	// reading that names a higher one means the drop did not land, and
+	// holding would leave that tier untouched until renewal.
+	if st.Phase == model.PhaseWaiting && tierID == tiers[0].ID {
 		if in.Account.RenewalAt != nil && in.Now.Before(*in.Account.RenewalAt) {
 			st.Note = "parked at the lowest tier until renewal"
 			st.TierID = tiers[0].ID

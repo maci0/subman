@@ -137,6 +137,69 @@ func TestRunLadderDoesNotRepeatOnTheSameReading(t *testing.T) {
 	}
 }
 
+// A drop that fails must be offered again on the next run. Parking at the
+// lowest tier until renewal is the result of the drop, so a command that
+// exited non-zero leaves the account where it is and the step still due.
+func TestRunLadderRetriesAFailedDrop(t *testing.T) {
+	dir := t.TempDir()
+	root, err := store.Open(filepath.Join(dir, "data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := filepath.Join(dir, "cred.json")
+	if err := os.WriteFile(src, []byte(`{}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(dir, "change")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\nprintf 'x' >> \"$HOME/runs\"\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	a := New(root)
+	view, err := a.Import(model.ImportRequest{Name: "work", Provider: model.ProviderClaude, CredentialPath: src, TierID: "ultra"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	acc := view.Account
+	acc.Ladder = true
+	acc.ChangeCommand = bin
+	renew := time.Now().UTC().Add(48 * time.Hour)
+	acc.RenewalAt = &renew
+	if _, err := a.UpdateAccount(acc); err != nil {
+		t.Fatal(err)
+	}
+	full := reading(true, 99)
+	full.TierID = "ultra"
+	full.PolledAt = time.Now().UTC().Add(-time.Minute)
+	if err := root.PutReading(acc.ID, full); err != nil {
+		t.Fatal(err)
+	}
+
+	first, err := a.RunLadder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := first.Accounts[0]
+	if got.Account.TierID != "ultra" || got.Next == nil || got.Next.To != "pro" || got.Ladder.Phase == model.PhaseWaiting || got.Ladder.Cycles != 0 || got.Ladder.LastError == "" {
+		t.Fatalf("a failed drop was treated as done: tier %q next %+v ladder %+v", got.Account.TierID, got.Next, got.Ladder)
+	}
+	if len(got.History) != 1 || got.History[0].Error == "" {
+		t.Fatalf("history %+v", got.History)
+	}
+
+	second, err := a.RunLadder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got = second.Accounts[0]
+	if got.Next == nil || got.Next.From != "ultra" || got.Next.To != "pro" || got.Ladder.Cycles != 0 {
+		t.Fatalf("the failed drop was not offered again: next %+v ladder %+v", got.Next, got.Ladder)
+	}
+	runs, err := os.ReadFile(filepath.Join(acc.Home, "runs"))
+	if err != nil || string(runs) != "xx" {
+		t.Fatalf("the change command ran %d times, %v", len(runs), err)
+	}
+}
+
 func TestBeginLoginRefusesABadRequestBeforeTheBrowser(t *testing.T) {
 	root, err := store.Open(t.TempDir())
 	if err != nil {

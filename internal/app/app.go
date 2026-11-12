@@ -139,10 +139,18 @@ func (a *App) view(acc model.Account) (model.AccountView, error) {
 	nextState, step := ladder.Decide(ladder.Input{Account: acc, Reading: rp, State: st, Now: now})
 	// Decide is a preview here. Persisted state changes only when RunLadder
 	// actually applies a step, so opening the window never moves a counter.
+	// A drop's waiting phase is the same kind of result: it is shown only
+	// once the drop has happened, or a failed drop would look parked until
+	// renewal while the step is still due.
 	shown := st
 	shown.Phase = nextState.Phase
 	shown.Note = nextState.Note
 	shown.TierID = nextState.TierID
+	if step != nil && !step.Reset && shown.Phase == model.PhaseWaiting && st.Phase != model.PhaseWaiting {
+		shown.Phase = model.PhaseClimbing
+		shown.TierID = acc.TierID
+		shown.Cycles = st.Cycles
+	}
 	if shown.Phase == "" {
 		shown.Phase = model.PhaseOff
 	}
@@ -727,7 +735,13 @@ func (a *App) RunLadder() (model.Overview, error) {
 			}
 			if err != nil {
 				next.LastError = err.Error()
+				// Phase and Cycles describe a step that happened. A drop
+				// that fails must not park the account at the lowest tier
+				// until renewal, or the next run would see PhaseWaiting and
+				// never retry the command.
 				next.Phase = model.PhaseClimbing
+				next.Cycles = st.Cycles
+				next.TierID = acc.TierID
 			} else {
 				// LastStep stops Decide from repeating this change on the same
 				// reading. It is recorded only after the step succeeds: a
@@ -739,6 +753,12 @@ func (a *App) RunLadder() (model.Overview, error) {
 					acc.TierID = step.To
 					if err := a.root.Save(acc); err != nil {
 						next.LastError = "the plan changed, but the new tier was not saved: " + err.Error()
+						// The plan changed at the provider but not here, so
+						// the phase stays what it was and the next run offers
+						// the same step again.
+						next.Phase = st.Phase
+						next.Cycles = st.Cycles
+						next.TierID = acc.TierID
 					}
 				}
 			}
