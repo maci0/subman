@@ -58,7 +58,7 @@ export function Detail({
       </div>
       <div>
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-          <h2 ref={heading} tabIndex={-1} className="flex min-w-0 items-center gap-2.5 text-[2rem] font-bold tracking-tight outline-none [font-stretch:78%]">
+          <h2 ref={heading} tabIndex={-1} className="flex min-w-0 items-center gap-2.5 text-figure font-bold tracking-figure outline-none [font-stretch:78%]">
             <AgentMark provider={view.account.provider} className="size-7" />
             <span className="truncate">{view.account.name}</span>
           </h2>
