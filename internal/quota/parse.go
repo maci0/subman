@@ -543,7 +543,10 @@ func unixMaybe(v float64) *time.Time {
 		return nil
 	}
 	sec := v
-	if sec > 1e12 {
+	// 1e12 is 2001-09-09 in milliseconds and year 33658 in seconds, so a
+	// value at the boundary is milliseconds. A strict greater-than drops
+	// that instant, and an expiry equal to it then never reads as past.
+	if sec >= 1e12 {
 		sec = sec / 1000
 	}
 	if sec > 253402300799 {

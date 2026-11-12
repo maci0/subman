@@ -39,7 +39,7 @@ func TestGetRefusesRedirect(t *testing.T) {
 
 func TestNextMonthly(t *testing.T) {
 	at := func(s string) time.Time {
-		v, err := time.Parse(time.RFC3339, s)
+		v, err := time.Parse(time.RFC3339Nano, s)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -53,9 +53,17 @@ func TestNextMonthly(t *testing.T) {
 		{"2026-01-31T10:00:00Z", "2026-02-01T00:00:00Z", "2026-02-28T10:00:00Z"},
 		{"2026-10-31T10:00:00Z", "2026-11-01T00:00:00Z", "2026-11-30T10:00:00Z"},
 		{"2026-11-30T10:00:00Z", "2026-12-31T00:00:00Z", "2027-01-30T10:00:00Z"},
+		// The profile states fractional seconds. Dropping them makes the
+		// anniversary a fraction early, so a poll in that gap steps a month ahead.
+		{"2026-01-16T02:40:20.034075Z", "2026-11-16T02:40:20.034074Z", "2026-11-16T02:40:20.034075Z"},
+		{"2026-01-16T02:40:20.034075Z", "2026-11-16T02:40:20.034075Z", "2026-12-16T02:40:20.034075Z"},
+		// A leap day keeps its day in a later leap year and clamps otherwise.
+		{"2024-02-29T10:00:00Z", "2024-03-01T00:00:00Z", "2024-03-29T10:00:00Z"},
+		{"2024-02-29T10:00:00Z", "2025-02-01T00:00:00Z", "2025-02-28T10:00:00Z"},
+		{"2024-02-29T10:00:00Z", "2028-02-01T00:00:00Z", "2028-02-29T10:00:00Z"},
 	}
 	for _, c := range cases {
-		if got := nextMonthly(at(c.began), at(c.now)).Format(time.RFC3339); got != c.want {
+		if got := nextMonthly(at(c.began), at(c.now)).Format(time.RFC3339Nano); got != c.want {
 			t.Errorf("began %s, now %s: %s, want %s", c.began, c.now, got, c.want)
 		}
 	}

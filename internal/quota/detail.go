@@ -58,12 +58,13 @@ func claudeProfile(ctx context.Context, token string, now time.Time) model.Readi
 // nextMonthly is the first monthly anniversary of began that is after now.
 // A start on the 31st lands on the last day of a shorter month.
 func nextMonthly(began, now time.Time) time.Time {
+	began = began.UTC()
 	for months := 1; ; months++ {
 		year, month := began.Year(), began.Month()+time.Month(months)
-		next := time.Date(year, month, began.Day(), began.Hour(), began.Minute(), began.Second(), 0, time.UTC)
+		next := time.Date(year, month, began.Day(), began.Hour(), began.Minute(), began.Second(), began.Nanosecond(), time.UTC)
 		// time.Date rolls 31 February into March; step back to the month's last day.
 		if want := (int(began.Month())-1+months)%12 + 1; int(next.Month()) != want {
-			next = time.Date(next.Year(), next.Month(), 0, began.Hour(), began.Minute(), began.Second(), 0, time.UTC)
+			next = time.Date(next.Year(), next.Month(), 0, began.Hour(), began.Minute(), began.Second(), began.Nanosecond(), time.UTC)
 		}
 		if next.After(now) {
 			return next

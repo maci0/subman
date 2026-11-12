@@ -229,4 +229,11 @@ func TestUnixMaybeRoundsMilliseconds(t *testing.T) {
 	if got := unixMaybe(1e20); got != nil {
 		t.Fatalf("beyond range: %v", got)
 	}
+	// 1e12 milliseconds is 2001-09-09T01:46:40Z. The same number in seconds
+	// is year 33658, which no provider sends, so the boundary is milliseconds.
+	boundary := unixMaybe(1e12)
+	wantBoundary := time.Unix(int64(1e9), 0).UTC()
+	if boundary == nil || !boundary.Equal(wantBoundary) {
+		t.Fatalf("1e12 milliseconds: %v", boundary)
+	}
 }
