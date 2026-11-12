@@ -12,7 +12,7 @@ Both pictures are the real window drawn from sample data.
 
 ## Why
 
-A tier change resets the usage window. Starting a billing period on the top tier, dropping to the cheapest paid tier, and climbing back up spends one period across several resets instead of one. Doing that by hand across four vendors and several logins is how a reset gets missed. subman keeps the state and only acts when you give it a command that performs the change.
+A tier change resets the usage window. Climbing from the cheapest paid tier to the top, using a banked reset once the top tier is spent, and only then dropping back to the cheapest spends one period across several resets instead of one. Doing that by hand across four vendors and several logins is how a reset gets missed. subman keeps the state and only acts when you give it a command that performs the change.
 
 ![One billing period: Pro, Max, and Ultra each fill to the threshold and step up; a banked reset refills Ultra once; then the ladder drops to Pro and parks until renewal](docs/img/ladder-cycle.png)
 
@@ -24,7 +24,7 @@ The usage numbers come from the same endpoints the [quota widget](https://github
 - A board of every account, one foldable table per provider, with a meter per usage window, the time each resets, and the login it is signed in as when the file says.
 - Polling when the window opens and on an interval you pick, and a desktop notification (Linux) when an account's fullest meter reaches its spend threshold.
 - A failed poll keeps the last good numbers and says they are old. An expired login is renewed on the next poll.
-- Ladder: off, unarmed (no change command), climbing, or waiting for renewal. Run ladder lists the plan changes that are due and asks before it runs them, each one is recorded, and a change never repeats on the reading that caused it.
+- Ladder: off, unarmed (no change command), climbing, or waiting for renewal. Unarmed still spends a banked reset, which needs no command. Run ladder lists the steps that are due and asks before it runs them, each one is recorded, and a step never repeats on the reading that caused it.
 - Next steps at the bottom of the board: what to do with which account and when, to spend every paid window in full (step up, use a reset, drop, spend what is left before a window resets, be on the top tier at renewal).
 - Banked resets per account, by type, with a warning when one is about to expire. A reset is only used on the highest tier: below it, stepping up resets the window and keeps the reset. With "Use a banked reset" on, Run ladder lists the reset as a due step and spends it after you confirm. Claude and Codex report banked resets and have a call to use one; Grok and Antigravity report none.
 - Test agent: runs `<agent> --version` under Landlock with the account's agent directory as `$HOME`.
@@ -33,7 +33,7 @@ The usage numbers come from the same endpoints the [quota widget](https://github
 
 ## What does not work yet
 
-No provider documents an API for changing a consumer plan. Claude, Codex, and Grok all do it in a billing page. Until you set a plan-change command on an account, the ladder computes the next step and stops. The command is one executable plus arguments, with `{from}` and `{to}` replaced. It is not a shell.
+No provider documents an API for changing a consumer plan. Claude, Codex, and Grok all do it in a billing page. Until you set a plan-change command on an account, the ladder names the next plan change and does not take it. A banked reset is the exception: it needs no command, and with "Use a banked reset" on, Run ladder spends it after you confirm. The command is one executable plus arguments, with `{from}` and `{to}` replaced. It is not a shell.
 
 Sign-in has been run up to each provider's login page, and no further: the approval, the redirect back, and the token exchange have not been exercised with a real account yet. The credential file path is there if one of them fails.
 

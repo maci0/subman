@@ -703,10 +703,11 @@ func (a *App) PollOne(id string) (model.AccountView, error) {
 	return a.viewOf(acc.ID)
 }
 
-// RunLadder evaluates every account and applies a step only when the
-// account has a change command. The command is not a shell line: it is a
-// single executable plus the tokens {from} and {to}, split on spaces.
-// Anything else is refused, and the refusal is the account's last error.
+// RunLadder evaluates every account. A plan-change step runs only when the
+// account has a change command; a reset step spends a banked reset and needs
+// none. The command is not a shell line: it is a single executable plus the
+// tokens {from} and {to}, split on spaces. Anything else is refused, and the
+// refusal is the account's last error.
 func (a *App) RunLadder() (model.Overview, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()

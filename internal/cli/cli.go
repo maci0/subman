@@ -161,7 +161,7 @@ Commands:
   accounts poll [<id>]          fetch usage
   accounts renew <id>           refresh the login in this account's copy
   accounts test <id>            run the agent inside the sandbox
-  ladder run [--dry-run]        take the plan changes that are due, or list them
+  ladder run [--dry-run]        take the due plan changes and banked resets, or list them
   update [--check]              compare with the latest release
   schema [command]              machine-readable description of this CLI
   version                       print the version

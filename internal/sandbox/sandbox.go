@@ -6,9 +6,9 @@
 // HOME and the provider's own home variable point there, so the CLI's
 // default (~/.claude, ~/.codex, ~/.grok, ~/.gemini) is not where it writes.
 //
-// A user namespace is not used. unshare(CLONE_NEWUSER) needs a capability
-// this process does not have once no_new_privs is set, which is the state
-// of a sandboxed agent session. Landlock does not need one.
+// A user namespace is not used. unshare(CLONE_NEWUSER) returns EPERM for a
+// process with no capabilities and no_new_privs already set, which is the
+// state of a sandboxed agent session. Landlock does not need either.
 package sandbox
 
 import (

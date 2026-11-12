@@ -14,7 +14,8 @@ import (
 // filesystem rights this kernel knows, a read-only grant on /, and a
 // read-write grant on the account's agent directory. No user namespace is
 // entered. A process with no capabilities and no_new_privs already set,
-// which is what a sandboxed agent session is, cannot unshare(CLONE_NEWUSER).
+// which is what a sandboxed agent session is, gets EPERM from
+// unshare(CLONE_NEWUSER).
 
 const landlockCreateVersion uintptr = 1 << 0
 

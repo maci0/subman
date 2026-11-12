@@ -99,13 +99,16 @@ type Account struct {
 	// it when the usage payload names a plan.
 	TierID string `json:"tierId"`
 
-	// Ladder runs the min-max cycle. It stays idle until ChangeCommand is
-	// set, because no provider publishes a plan-change API.
+	// Ladder runs the tier walk. A plan change still needs ChangeCommand,
+	// because no provider publishes a plan-change API. A banked reset does
+	// not: with AutoReset on, the ladder spends one at the highest tier
+	// even when ChangeCommand is empty.
 	Ladder        bool   `json:"ladder"`
 	ChangeCommand string `json:"changeCommand,omitempty"`
 
-	// AutoReset redeems one banked reset when the primary meter is full
-	// and the provider reports a reset credit.
+	// AutoReset spends one banked reset when the account is on the highest
+	// tier and its fullest meter is at the spend threshold. Below that tier
+	// the ladder steps up instead, which resets the window and keeps the credit.
 	AutoReset bool `json:"autoReset"`
 
 	// Home is the account directory. AgentHome is the directory a sandboxed

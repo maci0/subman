@@ -1,18 +1,23 @@
 // Package ladder decides the next plan change for one subscription.
 //
-// Cycle, once the highest tier has been activated:
+// Cycle, once the ladder is on and a poll has named a known tier:
 //
-//  1. Drop to the lowest paid tier.
-//  2. When the watched meter reaches the threshold, step up one tier.
+//  1. When the watched meter reaches the threshold, step up one tier.
 //     A tier change resets the provider's usage window, which is the
 //     whole point of the walk.
-//  3. At the highest tier, when the meter fills again, drop to the lowest
-//     and wait for RenewalAt before climbing again.
+//  2. At the highest tier, a banked reset that applies is used instead
+//     of dropping. It needs AutoReset, not a change command.
+//  3. At the highest tier with no reset to use, drop to the lowest paid
+//     tier and wait for RenewalAt before climbing again.
+//
+// An unknown tier is never treated as the cheapest plan: Decide holds
+// rather than step a plan nobody stated.
 //
 // Decide never runs a command and never touches the network. Apply is the
-// caller's job, and only when the account has a change command. With no
-// command the phase is "unarmed": the dashboard shows the next step and
-// does not take it.
+// caller's job. A plan change needs a change command; without one the
+// phase is "unarmed" and the window shows the step but does not take it.
+// A banked reset is still offered in that state, because spending it
+// needs no command.
 package ladder
 
 import (
