@@ -324,9 +324,16 @@ func (r *Root) PutCredential(id string, credential []byte) error {
 	}
 	tmp := acc.CredentialFile + ".tmp"
 	if err := os.WriteFile(tmp, credential, filePerm); err != nil {
+		os.Remove(tmp)
 		return err
 	}
-	return os.Rename(tmp, acc.CredentialFile)
+	if err := os.Rename(tmp, acc.CredentialFile); err != nil {
+		// The previous credential is untouched. Drop the temp so a later
+		// replacement cannot rename this half-written copy into place.
+		os.Remove(tmp)
+		return err
+	}
+	return nil
 }
 
 func (r *Root) Delete(id string) error {
@@ -448,7 +455,13 @@ func trimHistory(path string) error {
 		os.Remove(tmp)
 		return err
 	}
-	return os.Rename(tmp, path)
+	if err := os.Rename(tmp, path); err != nil {
+		// The untrimmed file is still complete. A leftover tmp would be
+		// renamed over it by the next trim that fails the same way.
+		os.Remove(tmp)
+		return err
+	}
+	return nil
 }
 
 // History returns the account's last maxHistory plan changes, newest first.
@@ -657,9 +670,16 @@ func writeJSON(path string, v any) error {
 	body = append(body, '\n')
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, body, filePerm); err != nil {
+		// A short write still creates the file. Leaving it would make the
+		// next save rename a partial document over the real one.
+		os.Remove(tmp)
 		return err
 	}
-	return os.Rename(tmp, path)
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return nil
 }
 
 func readJSON(path string, v any) error {

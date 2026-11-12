@@ -15,6 +15,14 @@ func assets() []Asset {
 	}
 }
 
+// A connection that never answers must end on its own. The request context
+// only cancels once headers start, so the client itself carries the cap.
+func TestClientHasADeadline(t *testing.T) {
+	if noRedirect.Timeout <= 0 {
+		t.Fatal("update client has no timeout")
+	}
+}
+
 func TestAssetName(t *testing.T) {
 	got := map[string]string{
 		"linux/amd64":   AssetName("linux", "amd64"),

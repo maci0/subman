@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/maci0/subman/internal/model"
 	"golang.org/x/mod/semver"
@@ -26,9 +27,15 @@ import (
 // noRedirect refuses every redirect. FetchLatest may carry a GitHub token,
 // and Install fetches the binary that replaces this one; either following a
 // redirect would trust a host this code never checked.
-var noRedirect = &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
-	return http.ErrUseLastResponse
-}}
+var noRedirect = &http.Client{
+	// The callers also bound the request with a context. This caps a
+	// connection that never reaches a response, which a context does not:
+	// it only ends a request once the headers have started.
+	Timeout: 30 * time.Second,
+	CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}
 
 const (
 	DefaultRepo = "maci0/subman"

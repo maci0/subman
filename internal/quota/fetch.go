@@ -327,7 +327,13 @@ func get(ctx context.Context, url, token string, extra map[string]string) (int, 
 // noRedirect is the client for every request that carries a bearer token.
 // http.DefaultClient follows up to ten redirects and resends the headers,
 // which would hand the token to whatever host the first answer names.
-var noRedirect = &http.Client{CheckRedirect: refuseRedirect}
+var noRedirect = &http.Client{
+	// Callers also bound the request with a context. This caps a connection
+	// that never reaches a response, which a context does not: it only ends
+	// a request once the headers have started.
+	Timeout:       defaultTimeout,
+	CheckRedirect: refuseRedirect,
+}
 
 func refuseRedirect(*http.Request, []*http.Request) error {
 	return http.ErrUseLastResponse

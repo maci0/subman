@@ -172,6 +172,26 @@ func TestFailedPollKeepsLastMetersAsStale(t *testing.T) {
 	}
 }
 
+// A rename that fails must not leave the temp file: the next save would
+// rename that partial document over the one that is still good.
+func TestFailedSaveRemovesTempFile(t *testing.T) {
+	root, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	blocked := filepath.Join(root.Path, "settings.json")
+	if err := os.Mkdir(blocked, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	err = root.PutSettings(model.DefaultSettings())
+	if err == nil {
+		t.Fatal("a save whose destination is a directory succeeded")
+	}
+	if _, statErr := os.Stat(blocked + ".tmp"); !os.IsNotExist(statErr) {
+		t.Fatalf("failed save left %s.tmp: %v", blocked, statErr)
+	}
+}
+
 func TestHistoryNewestFirst(t *testing.T) {
 	root, err := Open(t.TempDir())
 	if err != nil {

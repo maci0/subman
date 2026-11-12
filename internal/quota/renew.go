@@ -309,7 +309,14 @@ func saveCred(acc model.Account, cred map[string]any) error {
 	body = append(body, '\n')
 	tmp := acc.CredentialFile + ".tmp"
 	if err := os.WriteFile(tmp, body, 0o600); err != nil {
+		os.Remove(tmp)
 		return err
 	}
-	return os.Rename(tmp, acc.CredentialFile)
+	if err := os.Rename(tmp, acc.CredentialFile); err != nil {
+		// The copy in place is still the last good credential. A leftover
+		// temp would be what the next renewal renames over it.
+		os.Remove(tmp)
+		return err
+	}
+	return nil
 }

@@ -669,12 +669,21 @@ func (a *App) Poll() (model.Overview, error) {
 	now := time.Now().UTC()
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
+	var stored []error
 	for _, acc := range accounts {
 		reading := quota.Fetch(ctx, acc, now)
-		_ = a.StoreReading(acc, reading)
+		// One account whose reading cannot be saved does not stop the rest.
+		// The failure is kept and returned after every account has been
+		// tried, so a full disk is not reported as a finished poll.
+		if err := a.StoreReading(acc, reading); err != nil {
+			stored = append(stored, fmt.Errorf("%s: %w", acc.Name, err))
+		}
 		if ctx := a.runtimeCtx(); ctx != nil {
 			runtime.EventsEmit(ctx, "polled", acc.ID)
 		}
+	}
+	if err := errors.Join(stored...); err != nil {
+		return model.Overview{}, fmt.Errorf("poll results were not saved: %w", err)
 	}
 	return a.overview()
 }
@@ -818,7 +827,11 @@ func (a *App) CheckUpdate() (model.UpdateStatus, error) {
 		st = update.Check(Version, rel.Tag, rel.Assets).Status
 		st.CheckedAt = time.Now().UTC().Format(time.RFC3339)
 	}
-	_ = a.root.PutUpdate(st)
+	// The check itself succeeded. Losing the write would show this result
+	// once and then the previous check on every later open.
+	if err := a.root.PutUpdate(st); err != nil {
+		return st, fmt.Errorf("the update check could not be saved: %w", err)
+	}
 	return st, nil
 }
 
