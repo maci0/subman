@@ -84,7 +84,7 @@ export function Detail({
         ) : null}
       </div>
 
-      <div className={`mt-2 grid gap-x-14 gap-y-8 ${aside ? "min-[1100px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" : "max-w-3xl"}`}>
+      <div className={`mt-2 grid gap-x-14 gap-y-8 ${aside ? "min-[1100px]:grid-cols-account" : "max-w-3xl"}`}>
         <div className="flex min-w-0 flex-col gap-8">
           <Ladder view={view} threshold={threshold} onEdit={onEdit} />
           <NextSteps advice={advice} />
@@ -114,7 +114,7 @@ export function Detail({
               <>
                 <ul className="flex flex-col gap-3.5">
                   {reading.windows.map((w) => (
-                    <li key={w.label} className="grid grid-cols-[11rem_1fr_3rem_9.5rem] items-center gap-4">
+                    <li key={w.label} className="grid grid-cols-meters items-center gap-4">
                       <span className="truncate" title={w.label}>{w.label}</span>
                       <Meter label={w.label} util={w.util} threshold={threshold} stale={reading.stale} />
                       <span className="text-right font-semibold">{pct(w.util)}</span>
@@ -231,7 +231,7 @@ function History({ entries, tiers }: { entries: HistoryEntry[]; tiers: Tier[] })
       <h3 className="mb-2 text-lg font-semibold">Plan changes</h3>
       <ul className="flex flex-col text-sm">
         {entries.map((e) => (
-          <li key={e.at} className="grid grid-cols-[9.5rem_1fr] gap-4 border-t py-1.5">
+          <li key={e.at} className="grid grid-cols-history gap-4 border-t py-1.5">
             <span className="text-muted-foreground">{when(e.at)}</span>
             <span>
               {e.reset ? `Used a banked reset on ${labelOf(tiers, e.from)}` : `${labelOf(tiers, e.from)} to ${labelOf(tiers, e.to)}`}
@@ -254,7 +254,7 @@ function ResetList({ reading, warningMs }: { reading: Reading; warningMs: number
       <h4 className="mb-1 font-semibold">Banked resets</h4>
       <ul className="flex flex-col text-sm">
         {resets.map((r) => (
-          <li key={r.id} className="grid grid-cols-[1fr_auto] items-baseline gap-4 border-t py-1.5">
+          <li key={r.id} className="grid grid-cols-resets items-baseline gap-4 border-t py-1.5">
             <span>
               {r.title || r.type}
               <span className="text-fine text-muted-foreground">

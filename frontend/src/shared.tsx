@@ -74,10 +74,10 @@ export function NextSteps({ advice, onSelect }: { advice: Advice[]; onSelect?: (
         {advice.map((a) => {
           const due = new Date(a.at).getTime() <= now + MINUTE_MS;
           return (
-            <li key={`${a.accountId}:${a.kind}:${a.at}:${a.text}`} className={`grid items-baseline gap-4 border-t py-1.5 ${onSelect ? "grid-cols-[7rem_11rem_1fr]" : "grid-cols-[7rem_1fr]"}`}>
+            <li key={`${a.accountId}:${a.kind}:${a.at}:${a.text}`} className={`grid items-baseline gap-4 border-t py-1.5 ${onSelect ? "grid-cols-steps-account" : "grid-cols-steps"}`}>
               <span className={due ? "font-semibold text-primary" : "text-muted-foreground"} title={when(a.at)}>{due ? "now" : relative(a.at)}</span>
               {onSelect ? (
-                <button className="truncate rounded-sm py-0.5 text-left font-semibold outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50" onClick={() => onSelect(a.accountId)}>{a.account}</button>
+                <button className="truncate rounded-sm py-0.5 text-left font-semibold outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50" title={a.account} onClick={() => onSelect(a.accountId)}>{a.account}</button>
               ) : null}
               <span className={a.kind === "login" ? "text-destructive" : a.kind === "expiring" ? "text-warn" : ""}>{a.text}</span>
             </li>

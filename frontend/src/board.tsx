@@ -56,7 +56,7 @@ export function Board({
         const fullest = utils.length > 0 ? Math.max(...utils) : null;
         const failures = views.filter((v) => v.reading !== undefined && !v.reading.ok).length;
         return (
-          <details key={provider} open={!shut} onToggle={(e) => fold(provider, !e.currentTarget.open)}>
+          <details key={provider} className="min-w-0" open={!shut} onToggle={(e) => fold(provider, !e.currentTarget.open)}>
             <summary className="mb-1 flex cursor-pointer list-none items-center gap-2 rounded-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
               <ChevronRight className={`size-4 text-muted-foreground transition-transform ${shut ? "" : "rotate-90"}`} />
               <AgentMark provider={provider} className="size-4" />
@@ -67,7 +67,9 @@ export function Board({
               </span>
               {shut && failures > 0 ? <span className="text-fine text-destructive">{failures} poll{failures === 1 ? "" : "s"} failed</span> : null}
             </summary>
-            <table className="w-full table-fixed text-sm" aria-label={`${title(provider)} accounts`}>
+            {/* Columns are in rem, so enlarged text widens the table and it scrolls here instead of clipping its cells. */}
+            <div className="relative overflow-x-auto">
+            <table className="w-full min-w-[56rem] table-fixed text-sm" aria-label={`${title(provider)} accounts`}>
               <thead>
                 <tr className="text-left text-fine text-muted-foreground [&>th]:py-1.5 [&>th]:pr-5 [&>th]:font-normal">
                   <th scope="col" className="w-[18%] pl-2">Account</th>
@@ -95,6 +97,7 @@ export function Board({
                 ))}
               </tbody>
             </table>
+            </div>
           </details>
         );
       })}
@@ -133,7 +136,7 @@ function BoardRow({
           <span className="truncate" title={view.account.name}>{view.account.name}</span>
         </button>
         <span
-          className={`block truncate text-fine ${failed ? "text-destructive" : reading?.stale ? "text-warn" : "text-muted-foreground"}`}
+          className={`block text-fine ${failed ? "line-clamp-2 break-words" : "truncate"} ${failed ? "text-destructive" : reading?.stale ? "text-warn" : "text-muted-foreground"}`}
           title={failed ? reading.error : reading ? `polled ${when(reading.polledAt)}` : undefined}
         >
           {failed ? `poll failed${reading.stale ? ", old numbers" : ""}${reading.error ? `: ${reading.error}` : ""}` : reading ? reading.account || `polled ${relative(reading.polledAt)}` : "never polled"}

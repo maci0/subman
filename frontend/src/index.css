@@ -76,6 +76,14 @@
   --font-mono: ui-monospace, "DejaVu Sans Mono", monospace;
   /* Secondary text: times, captions, help. One step under the 0.9375rem body. */
   --text-fine: 0.8125rem;
+  /* Row layouts: account view main and side column; usage meter (label, bar, percent, reset time);
+     plan change (time, change); banked reset (name, expiry); next step (when, [account,] what). */
+  --grid-template-columns-account: minmax(0, 3fr) minmax(0, 2fr);
+  --grid-template-columns-meters: minmax(0, 11rem) minmax(8rem, 1fr) 3rem minmax(0, 9.5rem);
+  --grid-template-columns-history: 9.5rem 1fr;
+  --grid-template-columns-resets: 1fr auto;
+  --grid-template-columns-steps: 7rem 1fr;
+  --grid-template-columns-steps-account: 7rem 11rem 1fr;
 }
 
 @layer base {

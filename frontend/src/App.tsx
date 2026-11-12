@@ -210,14 +210,16 @@ export function App() {
   const sandbox = overview?.sandboxOk ?? false;
   const errorLine = error ? <ErrorLine message={error} onDismiss={() => setError("")} /> : null;
 
+  // A window short for its text size (36em is under 640px at the default
+  // 16px) scrolls as one page, so the header and footer do not crowd out the content.
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between gap-4 px-5 py-3">
+    <div className="flex h-full flex-col [@media(max-height:36em)]:h-auto">
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3">
         <div className="flex min-w-0 items-center gap-3">
-          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight [font-stretch:80%]"><img src="/logo.svg" alt="" className="size-6" />subman</h1>
+          <h1 className="flex shrink-0 items-center gap-2 text-xl font-bold tracking-tight [font-stretch:80%]"><img src="/logo.svg" alt="" className="size-6" />subman</h1>
           <p className="truncate text-sm text-muted-foreground">{summarize(overview)}</p>
         </div>
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           {overview ? (
             <span
               className={`mr-2 flex min-w-0 items-center gap-1.5 text-fine ${sandbox ? "text-muted-foreground" : "text-warn"}`}
@@ -256,7 +258,7 @@ export function App() {
         </div>
       ) : null}
 
-      <main className="min-h-0 flex-1 overflow-auto border-t px-6 py-5">
+      <main className="min-h-0 flex-1 overflow-auto border-t [@media(max-height:36em)]:overflow-visible px-6 py-5">
         {selectedView ? (
           <Detail
             key={selectedView.account.id}
@@ -323,12 +325,12 @@ export function App() {
         />
       ) : null}
 
-      <footer className="flex items-center justify-between gap-4 border-t px-5 py-1.5 text-fine text-muted-foreground">
+      <footer className="flex flex-wrap items-center justify-between gap-x-4 border-t px-5 py-1.5 text-fine text-muted-foreground">
         <span className="truncate font-mono text-xs">{overview?.dataDir || ""}</span>
-        <span className="flex shrink-0 items-center gap-1">
+        <span className="flex flex-wrap items-center justify-end gap-1">
           <label className="mr-3 flex min-h-6 items-center gap-1.5 whitespace-nowrap">
             Poll automatically
-            <span className="w-[7.5rem]">
+            <span className="w-[8.75rem]">
             <NativeSelect
               className="h-7 py-0 pr-8 pl-2 text-fine text-foreground"
               value={autoPoll}

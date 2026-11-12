@@ -381,3 +381,21 @@ The operator asked to push the audit fixes, update the local install, release, a
 - The version is 0.1.1 in `main.go`, `cmd/subman/main.go`, `internal/cli`, `internal/app`, and `wails.json`. `v0.1.1` was tagged at that commit and pushed, which starts the release workflow.
 - `~/.local/bin/subman` is a `-trimpath -tags production,webkit2_41` build of that commit; the previous binary is at `~/.cache/subman/subman-before-0.1.1`. From the installed binary, `subman version` prints 0.1.1 and `accounts list` lists this machine's accounts.
 - `docs/img/board.png` and `docs/img/account.png` were retaken in Chromium from the built frontend against `.scratch/ui/mock.js` (sample data, light theme, 1280 wide, tall enough to show the whole view). They now show per-account resets, the expiry warning, next steps, and the banked reset list, none of which existed when the old ones were taken. The README captions name them.
+
+## 2026-11-12 re-audit fixes and graphics
+
+A re-audit after 0.1.1 scored 17/20 and found one P1 and three P3s. The operator asked for all of them fixed, and for graphics.
+
+Changed:
+
+- Reflow at enlarged text (P1, WCAG 1.4.4). At a 150% root size the title was drawn over the account summary, "Add account" ran off the window, and board cells clipped to an ellipsis. Now the header and footer wrap and the title does not shrink. Each board table has `min-w-[56rem]` and scrolls inside a `relative overflow-x-auto` container; `relative` was needed because the absolutely placed "Actions" label otherwise widened the page. The board's `details` are `min-w-0`. The usage row keeps an 8rem floor for the bar (`minmax(8rem, 1fr)`): at 200% it had been 6px wide. A window shorter than 36em scrolls as one page instead of leaving the content a strip between header and footer.
+- The poll-interval select was 7.5rem and clipped "every 15 min" at every size; it is 8.75rem.
+- Next steps account names carry their full text as a title (P3).
+- Board tooltips (P3): the reason a step is due and an expiring reset are already written out in Next steps on the same page. The poll error was the one left hover-only; it now wraps to two lines under "poll failed" instead of truncating.
+- The six inline grid templates are named theme values in `index.css` (P3).
+- Graphics: `docs/img/banner.png` heads the README, `docs/img/ladder-cycle.png` sits under Why, and `docs/img/social-preview.png` (1280x640) is for the repository's social preview. They are drawn by `docs/img/art.html` in the window's palette and font. The cycle follows `ladder.Decide`: from renewal it climbs Pro, Max, Ultra, each to the threshold; a banked reset refills Ultra once; then it drops to Pro and waits for the renewal.
+- `board.png` and `account.png` were retaken for the select and the wrapped poll error.
+
+Verified in Chromium against the built frontend and sample data at 960x640, root sizes 100%, 150%, and 200%, board and account view: no page-level horizontal scroll, header, footer, and main do not overflow, no overlapping header items, no truncated text without a title, usage bars 478px at 100% and 256px at 200%. At 960x500 `main` stops scrolling and the document scrolls. `bun test`, `bun run build`, `oxlint`, `vnu` on `frontend/dist/index.html` and `docs/img/art.html` (no errors, no warnings), `go test -race ./...`.
+
+Not verified: the real WebKitGTK window and a screen reader. The social preview is not set on GitHub; that is a repository setting with no API.

@@ -1,5 +1,7 @@
 # subman
 
+![subman: every AI subscription you pay for, spent in full](docs/img/banner.png)
+
 One window for the Claude, Codex, Grok, and Antigravity subscriptions you already pay for. It shows what each one has left, when it renews, and how many reset credits are banked. When you arm it, it walks a subscription up its paid tiers as each one runs out, then parks at the cheapest tier until the next renewal.
 
 ![Every account in one table per provider, with a meter per usage window, banked resets, and the proposed next steps below](docs/img/board.png)
@@ -11,6 +13,8 @@ Both pictures are the real window drawn from sample data.
 ## Why
 
 A tier change resets the usage window. Starting a billing period on the top tier, dropping to the cheapest paid tier, and climbing back up spends one period across several resets instead of one. Doing that by hand across four vendors and several logins is how a reset gets missed. subman keeps the state and only acts when you give it a command that performs the change.
+
+![One billing period: Pro, Max, and Ultra each fill to the threshold and step up; a banked reset refills Ultra once; then the ladder drops to Pro and parks until renewal](docs/img/ladder-cycle.png)
 
 The usage numbers come from the same endpoints the [quota widget](https://github.com/maci0/quota-widget) already polls. Each account holds its own login, separate from the vendor CLI's: subman signs in for it, or copies a file the CLI wrote. It renews that login when it expires and never writes `~/.claude`, `~/.codex`, `~/.grok`, or `~/.gemini`.
 
