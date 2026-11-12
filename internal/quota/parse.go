@@ -255,22 +255,21 @@ func codexWindow(block map[string]any, name string, now time.Time) (model.Window
 		return model.Window{}, false
 	}
 	clamped := math.Min(100, math.Max(0, *util))
-	var windowS int
-	if v := finite(block["limit_window_seconds"]); v != nil {
-		windowS = int(*v)
+	var windowS int64
+	if v := finite(block["limit_window_seconds"]); v != nil && *v > 0 && *v <= math.MaxInt64 {
+		windowS = int64(*v)
 	}
 	label := codexLabel(windowS, name)
 	var resets *time.Time
 	if v := finite(block["reset_at"]); v != nil {
 		resets = unixMaybe(*v)
-	} else if v := finite(block["reset_after_seconds"]); v != nil {
-		t := now.UTC().Add(time.Duration(*v) * time.Second)
-		resets = &t
+	} else if t := afterSeconds(now, finite(block["reset_after_seconds"])); t != nil {
+		resets = t
 	}
 	return model.Window{Label: label, Util: &clamped, ResetsAt: resets}, true
 }
 
-func codexLabel(windowS int, name string) string {
+func codexLabel(windowS int64, name string) string {
 	const (
 		hour = 3600
 		day  = 86400
@@ -281,13 +280,13 @@ func codexLabel(windowS int, name string) string {
 	case windowS <= 6*hour:
 		return "Current session"
 	case windowS <= 2*day:
-		return strconv.Itoa((windowS+hour/2)/hour) + "-hour"
+		return strconv.FormatInt((windowS+hour/2)/hour, 10) + "-hour"
 	case windowS >= 6*day && windowS <= 8*day:
 		return "Weekly"
 	case windowS >= 27*day && windowS <= 32*day:
 		return "Monthly"
 	default:
-		return strconv.Itoa((windowS+day/2)/day) + "-day"
+		return strconv.FormatInt((windowS+day/2)/day, 10) + "-day"
 	}
 }
 
@@ -335,17 +334,34 @@ func parseGrok(obj map[string]any, now time.Time) model.Reading {
 	return r
 }
 
-// grokAmount reads a value wrapped as {"val": cents} or a bare number.
+// grokAmount reads a prepaid balance. The credits payload wraps it as
+// {"val": cents}. A bare number is already major units, the way the other
+// providers state a balance, so dividing it would show a hundredth.
 func grokAmount(v any) *float64 {
-	if m := asMap(v); len(m) > 0 {
-		v = m["val"]
+	if _, wrapped := v.(map[string]any); wrapped {
+		n := finite(asMap(v)["val"])
+		if n == nil {
+			return nil
+		}
+		// Cents are whole. A fraction here is a unit mix-up, not money.
+		cents := math.Round(*n)
+		if cents != *n {
+			return nil
+		}
+		dollars := cents / 100
+		return &dollars
 	}
-	n := finite(v)
-	if n == nil {
+	return finite(v)
+}
+
+// afterSeconds is now plus a whole number of seconds, or nil when the count
+// is missing, fractional, negative, or too large for seconds to count.
+func afterSeconds(now time.Time, count *float64) *time.Time {
+	if count == nil || *count != math.Trunc(*count) || *count <= 0 || *count > math.MaxInt64/float64(time.Second) {
 		return nil
 	}
-	dollars := *n / 100
-	return &dollars
+	t := now.UTC().Add(time.Duration(*count) * time.Second)
+	return &t
 }
 
 func grokPeriod(cfg map[string]any, now time.Time) (model.Window, bool) {
@@ -370,9 +386,8 @@ func grokPeriod(cfg map[string]any, now time.Time) (model.Window, bool) {
 	var resets *time.Time
 	if t := isoTime(first(cfg, "resets_at", "reset_at", "period_end")); t != nil {
 		resets = t
-	} else if v := finite(cfg["reset_after_seconds"]); v != nil {
-		t := now.UTC().Add(time.Duration(*v) * time.Second)
-		resets = &t
+	} else if t := afterSeconds(now, finite(cfg["reset_after_seconds"])); t != nil {
+		resets = t
 	}
 	clamped := math.Min(100, math.Max(0, *used))
 	return model.Window{Label: label, Util: &clamped, ResetsAt: resets}, true

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -331,10 +332,33 @@ func postLogin(ctx context.Context, endpoint, contentType, agent string, body io
 // provider named no lifetime: a file with no expiry is renewed on a 401,
 // not on every poll.
 func expiry(expiresIn int) string {
-	if expiresIn <= 0 {
+	span := seconds(expiresIn)
+	if span == 0 {
 		return ""
 	}
-	return time.Now().Add(time.Duration(expiresIn) * time.Second).UTC().Format(time.RFC3339)
+	return time.Now().Add(span).UTC().Format(time.RFC3339)
+}
+
+// expiresAt is expiresIn seconds from now, or nil when seconds rejects it.
+func expiresAt(expiresIn int) *time.Time {
+	span := seconds(expiresIn)
+	if span == 0 {
+		return nil
+	}
+	when := time.Now().Add(span).UTC()
+	return &when
+}
+
+// seconds is expiresIn as a duration. time.Duration counts nanoseconds in an
+// int64, so a count past that (about 292 years) wraps and lands in the past:
+// a stored expiry would then say a live token has expired, and a sign-in
+// timeout would end at once. A missing, non-positive, or overflowing count
+// returns 0, which every caller treats as "the provider named no lifetime".
+func seconds(expiresIn int) time.Duration {
+	if expiresIn <= 0 || int64(expiresIn) > int64(math.MaxInt64)/int64(time.Second) {
+		return 0
+	}
+	return time.Duration(expiresIn) * time.Second
 }
 
 // exchangeClaude trades the code for tokens and returns the flat file
@@ -472,7 +496,7 @@ func startDeviceLogin(ctx context.Context, flow deviceFlow) (*Login, error) {
 	if page == "" {
 		page = device.URL
 	}
-	interval := time.Duration(device.Interval) * time.Second
+	interval := seconds(device.Interval)
 	if interval < flow.minPoll {
 		interval = flow.minPoll
 	}
@@ -486,9 +510,9 @@ func startDeviceLogin(ctx context.Context, flow deviceFlow) (*Login, error) {
 		close:    closeOnce,
 		wait: func(ctx context.Context) (map[string]any, error) {
 			defer closeOnce()
-			if device.ExpiresIn > 0 {
+			if deadline := expiresAt(device.ExpiresIn); deadline != nil {
 				var stop context.CancelFunc
-				ctx, stop = context.WithTimeout(ctx, time.Duration(device.ExpiresIn)*time.Second)
+				ctx, stop = context.WithDeadline(ctx, *deadline)
 				defer stop()
 			}
 			// One timer for the whole poll. time.After in the loop would

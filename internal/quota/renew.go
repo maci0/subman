@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/maci0/subman/internal/model"
 )
@@ -101,8 +100,8 @@ func writeClaudeCode(acc model.Account, cred map[string]any, tok token) error {
 	if tok.Refresh != "" {
 		oauth["refreshToken"] = tok.Refresh
 	}
-	if tok.ExpiresIn > 0 {
-		oauth["expiresAt"] = float64(time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second).UnixMilli())
+	if when := expiresAt(tok.ExpiresIn); when != nil {
+		oauth["expiresAt"] = float64(when.UnixMilli())
 	}
 	cred["claudeAiOauth"] = oauth
 	return saveCred(acc, cred)
@@ -113,8 +112,8 @@ func writeFlat(acc model.Account, cred map[string]any, tok token) error {
 	if tok.Refresh != "" {
 		cred["refresh_token"] = tok.Refresh
 	}
-	if tok.ExpiresIn > 0 {
-		cred["expired"] = time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second).UTC().Format(time.RFC3339)
+	if exp := expiry(tok.ExpiresIn); exp != "" {
+		cred["expired"] = exp
 	}
 	return saveCred(acc, cred)
 }
@@ -191,8 +190,8 @@ func renewGrok(ctx context.Context, acc model.Account, cred map[string]any) erro
 	if tok.Refresh != "" {
 		entry["refresh_token"] = tok.Refresh
 	}
-	if tok.ExpiresIn > 0 {
-		entry["expires_at"] = time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second).UTC().Format(time.RFC3339)
+	if exp := expiry(tok.ExpiresIn); exp != "" {
+		entry["expires_at"] = exp
 	}
 	cred[name] = entry
 	return saveCred(acc, cred)
