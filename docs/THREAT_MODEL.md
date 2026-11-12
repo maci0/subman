@@ -13,13 +13,15 @@ subman is a single-user desktop program (Wails window, plus a CLI) that runs as 
 | 3 | Operator to stored secrets | Anyone who can read the data directory can use the copied refresh tokens | Directory `0700`, files `0600` (`internal/store/store.go`) | No encryption at rest, no OS keychain, no rotation other than the provider's own refresh |
 | 4 | This program to a provider | A hostile or compromised provider response is trusted for the tier, the renewal date, and the account name | Response size caps; OAuth error bodies are reduced to the `error` field (`internal/quota/login.go`, `postLogin`) | `jwtClaims` decodes an id token and does not verify it (`internal/quota/identity.go`). Codex dates and the sign-in email are taken from that payload (`internal/quota/dates.go`) |
 | 5 | Release repo to this binary | A replaced release binary runs as the operator | Asset host allow-list, size caps, SHA-256 checked against `SHA256SUMS` before rename (`internal/update/update.go`) | The checksum file is fetched from the same host as the binary. Trust is GitHub plus the tag signature the release workflow asks `gh` to verify (`.github/workflows/release.yml`) |
+| 6 | Local process to the Grok device code | A process that reads the verification URL finishes the sign-in first and the token is stored as the operator's | No listener. Discovery endpoints must start with `https://auth.x.ai/`, and the poll waits at least five seconds (`internal/quota/login.go`, `startDeviceLogin`) | The device code is the exchange secret and stays in the process until the sign-in ends. Only the user code is printed, to stderr (`internal/cli/manage.go`, `signIn`) |
+| 7 | Webview to the bound API | Script running in the window calls `RunLadder` or `Delete` with no further check | The window confirms a ladder run before calling (`frontend/src/App.tsx`, `confirmLadder`) | Confirmation is the page. `RunLadder` is bound and spends a due reset or plan change without asking again (`main.go`, `internal/app/app.go`) |
 
 ## Entry points
 
 Network listeners
 
 - OAuth callback, loopback only, for the life of one sign-in. Claude binds `127.0.0.1:54545` at `/callback`, Codex binds `127.0.0.1:1455` at `/auth/callback`. Started from the window (`internal/app/app.go`, `BeginLogin`) and the CLI (`internal/cli/manage.go`, `accountsAdd`). Grok uses a device code and binds nothing (`internal/quota/login.go`, `startDeviceLogin`).
-- No other listener. The window's assets are an embedded filesystem (`main.go`), not a reachable server.
+- No other listener. The window's assets are an embedded filesystem (`main.go`), not a reachable server. Wails binds `App` in-process (`main.go`, `Bind`): the page calls those methods directly and that binding opens no port.
 
 Outbound HTTP, all as the operator
 
@@ -55,6 +57,18 @@ The callback is the one place an input arrives from something that is not the op
 
 What is not defended: the port is fixed and published, the listener stays up for the whole sign-in (ten minutes, `internal/app/app.go`, `loginTimeout`), and the first request that presents the right state wins. A process that can observe the authorize URL learns the state.
 
+### Local process to the Grok device code
+
+Grok's sign-in binds nothing. `startDeviceLogin` fetches discovery, refuses an endpoint that does not start with `https://auth.x.ai/`, and polls the token endpoint with the device code (`internal/quota/login.go`). The user code is printed to stderr (`internal/cli/manage.go`, `signIn`) and shown in the window, so the operator can check the page is approving this request.
+
+What is not defended: the device code itself is the credential for the exchange. It lives in the process until the sign-in ends or expires (`expires_in` from the provider, else the ten-minute caller timeout). A local process that reads the URL or the process memory can complete the exchange before the operator does. The poll interval is floored at five seconds (`minDevicePoll`), so a provider that asks for a faster poll cannot turn this into a tight loop.
+
+### Webview to the bound API
+
+`main.go` binds the whole `App`. The page can call `RunLadder`, `Delete`, `UpdateAccount`, `Poll`, `BeginLogin`, and the rest with no token of its own. The window's confirmation dialog is the page (`frontend/src/App.tsx`, `confirmLadder`); `RunLadder` applies every due step, including a banked-reset redemption, and does not ask again (`internal/app/app.go`). A page the operator loads in this window, or a script injected into it, acts as the operator.
+
+The binding is not a network endpoint. Reaching it means already running code inside the window.
+
 ### Operator to stored secrets
 
 Credentials enter three ways: the OAuth exchange, a file the operator names, or a refresh answer. They live in `<data>/accounts/<id>/credential.json`, mode `0600`, under a `0700` directory. `Home` and `AgentHome` are derived at load, so a moved data directory does not keep the old path (`internal/store/store.go`, `Load`). Renewal rewrites that copy only. Nothing is written to `~/.claude`, `~/.codex`, `~/.grok`, or `~/.gemini`.
@@ -65,7 +79,9 @@ Leaving: tokens go to the provider on each poll, refresh, and redemption, in an 
 
 Provider JSON is parsed and size-capped (`maxBody` in `internal/quota/fetch.go`, `maxLoginBody` in `internal/quota/login.go`). A good poll overwrites the stored tier and a stated renewal date (`internal/app/app.go`, `adopt`). An estimated renewal fills an empty date or replaces an earlier estimate only. An id token is decoded with no signature check (`internal/quota/identity.go`, `jwtClaims`), and Codex activation and renewal dates are read from its claims (`internal/quota/dates.go`). A tampered token file can therefore set those dates and the displayed email. The token still has to be accepted by the provider for a poll to succeed.
 
-`http.DefaultClient` is used for provider calls. `get` rejects a `Location` that is not `https` (`internal/quota/fetch.go`). Redirects on the POST paths are the client's default.
+`http.DefaultClient` is used for provider calls. `get` rejects a `Location` that is not `https` (`internal/quota/fetch.go`). Redirects on the POST paths (token exchange, refresh, redemption) are the client's default, which follows them.
+
+Codex dates are the sharp case. `stateDates` reads the period start and end out of the unverified id token (`internal/quota/dates.go`), and `adopt` writes a stated renewal over a date the operator typed (`internal/app/app.go`). The ladder times its drop to the cheapest tier from that date, so a token file edited on disk can move when a plan change is due. It cannot mint a poll: `adopt` returns immediately when the reading is not ok, and ok requires the provider to accept the access token.
 
 ### Release repo to this binary
 
@@ -88,11 +104,13 @@ Privilege: the child keeps the operator's uid. Landlock is the constraint, and i
 - The release binary. Replacement runs as the operator on the next launch.
 - Availability of the subscription: a ladder run can change a paid tier or spend a reset credit. The window confirms; the CLI does not.
 - Account email and plan dates, shown in the window and printed by the CLI.
+- The operator's paid tier and banked reset credits. A ladder run spends both, and for Codex the date that times it is taken from an unverified id token.
 
 ## Mitigations present
 
 - Callback state check and PKCE: `internal/quota/login.go`.
-- One sign-in at a time, cancelled when its dialog closes: `internal/app/app.go`, `CancelLogin`.
+- Grok discovery endpoints must start with `https://auth.x.ai/`, and the device poll waits at least five seconds: `internal/quota/login.go`, `startDeviceLogin`.
+- One sign-in at a time, cancelled when its dialog closes: `internal/app/app.go`, `CancelLogin`. A relogin as a different identity is refused and replaces nothing: `CompleteRelogin`.
 - Credential file mode and id checks: `internal/store/store.go`.
 - Landlock with no unconfined fallback: `internal/sandbox/run.go`, `internal/sandbox/landlock_linux.go`.
 - Update URL allow-list and checksum before replace: `internal/update/update.go`.
@@ -105,10 +123,11 @@ Privilege: the child keeps the operator's uid. Landlock is the constraint, and i
 Recorded here so a later pass can fix them. Not fixed in this document.
 
 - No encryption of `credential.json`.
-- id tokens decoded without verification (`internal/quota/identity.go`).
-- Sandbox does not exist outside Linux, and on Linux the plan-change child may write the credential file.
+- id tokens decoded without verification (`internal/quota/identity.go`). For Codex the decoded claims set the renewal the ladder acts on (`internal/quota/dates.go`, `internal/app/app.go`, `adopt`).
+- The window's ladder confirmation is the page. `RunLadder` is bound and applies due steps, including a reset redemption, with no check of its own (`main.go`, `internal/app/app.go`).
+- Sandbox does not exist outside Linux, and on Linux the plan-change child may write the credential file. Landlock here is filesystem only: the child keeps the operator's network (`internal/sandbox/landlock_linux.go`).
 - `ladder run` has no confirmation on the CLI.
 - Callback port is fixed and the listener accepts the first matching state.
 - Checksum and binary come from the same host.
 - No audit trail beyond `history.jsonl` for plan changes. Sign-in, renewal, and update replacement are not recorded.
-- No `SECURITY.md`, so there is no published disclosure path. None is invented here.
+- No `SECURITY.md`. There is no published disclosure path, and none is invented here. A report has no documented route to a shipped fix.
