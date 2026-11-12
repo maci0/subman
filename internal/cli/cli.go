@@ -30,7 +30,7 @@ import (
 const specVersion = "0.3"
 
 // Version is the release this binary reports.
-var Version = "0.1.0"
+var Version = "0.1.1"
 
 // IO is where a run reads and writes. Tests pass buffers. A real run uses
 // the process streams, and Format auto then checks whether stdout is a TTY.
