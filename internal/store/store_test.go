@@ -1,10 +1,12 @@
 package store
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/maci0/subman/internal/model"
@@ -244,6 +246,64 @@ func TestHistoryFileStaysBounded(t *testing.T) {
 	lines := strings.Split(strings.TrimRight(string(body), "\n"), "\n")
 	if len(lines) != maxHistory {
 		t.Fatalf("file kept %d lines", len(lines))
+	}
+}
+
+// TestAppendHistoryKeepsConcurrentLines appends from several goroutines at
+// once, which is what the window and the CLI do to one data directory. Every
+// line must survive: a trim that rewrites the file from a snapshot taken
+// before another append lands drops that append when it renames.
+func TestAppendHistoryKeepsConcurrentLines(t *testing.T) {
+	root, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := filepath.Join(t.TempDir(), "c.json")
+	if err := os.WriteFile(src, []byte(`{}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	acc, err := root.Import(model.ImportRequest{Name: "c", Provider: model.ProviderClaude, CredentialPath: src, TierID: "pro"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const writers = 8
+	const each = maxHistory
+	var wg sync.WaitGroup
+	wg.Add(writers)
+	for w := range writers {
+		go func() {
+			defer wg.Done()
+			for i := range each {
+				if err := root.AppendHistory(acc.ID, model.HistoryEntry{From: "pro", To: fmt.Sprintf("w%d-%d", w, i)}); err != nil {
+					t.Error(err)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	body, err := os.ReadFile(filepath.Join(root.Path, "accounts", acc.ID, "history.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimRight(string(body), "\n"), "\n")
+	if len(lines) != maxHistory {
+		t.Fatalf("file kept %d lines", len(lines))
+	}
+	seen := map[string]bool{}
+	for _, line := range lines {
+		var e model.HistoryEntry
+		if err := json.Unmarshal([]byte(line), &e); err != nil {
+			t.Fatalf("torn line %q: %v", line, err)
+		}
+		if seen[e.To] {
+			t.Fatalf("duplicate line %s", e.To)
+		}
+		seen[e.To] = true
+	}
+	h, err := root.History(acc.ID)
+	if err != nil || len(h) != maxHistory {
+		t.Fatalf("history %d %v", len(h), err)
 	}
 }
 

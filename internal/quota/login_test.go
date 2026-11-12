@@ -250,6 +250,14 @@ func TestLoginReportsABusyPort(t *testing.T) {
 	if _, err := startCodeLogin(codeFlow{authURL: "https://example.test/a", path: "/cb", port: port}); err == nil || !strings.Contains(err.Error(), "in use") {
 		t.Fatalf("second listener on %d: %v", port, err)
 	}
+	// Close waits until the listener is gone, so the port is free for the
+	// next sign-in the moment it returns.
+	first.Close()
+	again, err := startCodeLogin(codeFlow{authURL: "https://example.test/a", path: "/cb", port: port})
+	if err != nil {
+		t.Fatalf("port %d still taken after Close: %v", port, err)
+	}
+	again.Close()
 }
 
 func TestDeviceLoginPollsUntilApproved(t *testing.T) {

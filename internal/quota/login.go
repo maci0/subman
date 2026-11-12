@@ -205,7 +205,12 @@ func startCodeLogin(flow codeFlow) (*Login, error) {
 		}
 	})
 	srv := &http.Server{Handler: mux, ReadHeaderTimeout: loginRequestTimeout}
+	// served closes when Serve returns, which is when the port is actually
+	// free again. Close waits for it, so a sign-in started straight after
+	// one ends does not find its own callback port still taken.
+	served := make(chan struct{})
 	go func() {
+		defer close(served)
 		// Serve returns ErrServerClosed on Close; any other error ends the
 		// listener, and Wait then runs into its context.
 		_ = srv.Serve(ln)
@@ -229,7 +234,10 @@ func startCodeLogin(flow codeFlow) (*Login, error) {
 		once.Do(func() {
 			close(closed)
 			// Shutdown lets the handler finish writing the page the browser
-			// is waiting for; Close would cut it off.
+			// is waiting for; Close would cut it off. It runs beside the
+			// caller: wait defers closeOnce and returns as soon as the
+			// credential is ready, and Shutdown would otherwise wait for the
+			// handler that is still on its way out.
 			go func() {
 				ctx, cancel := context.WithTimeout(context.Background(), callbackDrain)
 				defer cancel()
@@ -270,7 +278,13 @@ func startCodeLogin(flow codeFlow) (*Login, error) {
 				return cred, err
 			}
 		},
-		close: closeOnce,
+		close: func() {
+			closeOnce()
+			// Close is the call that ends a sign-in so another can start, and
+			// the next one binds this same port. Wait until Serve has
+			// returned, which is when the port is actually free.
+			<-served
+		},
 	}, nil
 }
 

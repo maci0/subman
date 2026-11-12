@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -30,7 +31,10 @@ var Version = "0.1.1"
 
 // App is the bound Wails object.
 type App struct {
-	ctx  context.Context
+	// ctx is published by Startup and read by the bound methods, which Wails
+	// runs on other goroutines. An atomic keeps that publication a happens-
+	// before; a plain field would be a data race on the first call after open.
+	ctx  atomic.Value // context.Context
 	root *store.Root
 	mu   sync.Mutex
 
@@ -47,7 +51,14 @@ func New(root *store.Root) *App {
 }
 
 func (a *App) Startup(ctx context.Context) {
-	a.ctx = ctx
+	a.ctx.Store(ctx)
+}
+
+// runtimeCtx is the context Startup published, or nil before it has run,
+// which is every call from the CLI.
+func (a *App) runtimeCtx() context.Context {
+	ctx, _ := a.ctx.Load().(context.Context)
+	return ctx
 }
 
 func (a *App) Overview() (model.Overview, error) {
@@ -354,7 +365,7 @@ func (a *App) PickCredential(startAt string) (string, error) {
 			opts.DefaultDirectory = dir
 		}
 	}
-	return runtime.OpenFileDialog(a.ctx, opts)
+	return runtime.OpenFileDialog(a.runtimeCtx(), opts)
 }
 
 // LoginStart is what the operator needs to finish a sign-in in the browser.
@@ -391,19 +402,28 @@ func (a *App) BeginRelogin(id string) (LoginStart, error) {
 // new account, so a Complete call cannot pick up a sign-in started for
 // something else.
 func (a *App) beginLogin(provider model.Provider, owner string) (LoginStart, error) {
-	a.loginMu.Lock()
-	defer a.loginMu.Unlock()
-	if a.login != nil {
-		a.login.Close()
-		a.login = nil
+	// Close runs outside the lock. It shuts the callback server down, which
+	// waits for the handler to finish writing, and that handler's only way
+	// back is through this same lock on a Complete or Cancel call.
+	if prev := a.takeLogin(); prev != nil {
+		prev.Close()
 	}
 	login, err := quota.StartLogin(context.Background(), provider)
 	if err != nil {
 		return LoginStart{}, err
 	}
+	a.loginMu.Lock()
+	// A sign-in started while this one was being set up replaces it: one
+	// sign-in runs at a time, and the newer call already won.
+	if a.login != nil {
+		a.loginMu.Unlock()
+		login.Close()
+		return LoginStart{}, errors.New("another sign-in started")
+	}
 	a.login, a.loginProvider, a.loginOwner = login, provider, owner
-	if a.ctx != nil {
-		runtime.BrowserOpenURL(a.ctx, login.URL)
+	a.loginMu.Unlock()
+	if ctx := a.runtimeCtx(); ctx != nil {
+		runtime.BrowserOpenURL(ctx, login.URL)
 	}
 	return LoginStart{URL: login.URL, UserCode: login.UserCode}, nil
 }
@@ -411,12 +431,18 @@ func (a *App) beginLogin(provider model.Provider, owner string) (LoginStart, err
 // CancelLogin ends the sign-in in progress, if any. A Complete call that is
 // waiting on it returns an error.
 func (a *App) CancelLogin() {
+	if login := a.takeLogin(); login != nil {
+		login.Close()
+	}
+}
+
+// takeLogin detaches the sign-in in progress and returns it, or nil.
+func (a *App) takeLogin() *quota.Login {
 	a.loginMu.Lock()
 	defer a.loginMu.Unlock()
-	if a.login != nil {
-		a.login.Close()
-		a.login = nil
-	}
+	login := a.login
+	a.login = nil
+	return login
 }
 
 // awaitLogin waits for the sign-in begun for provider and owner and returns
@@ -424,11 +450,17 @@ func (a *App) CancelLogin() {
 func (a *App) awaitLogin(provider model.Provider, owner string) ([]byte, error) {
 	a.loginMu.Lock()
 	login := a.login
-	if login != nil && (a.loginProvider != provider || a.loginOwner != owner) {
-		login.Close()
-		a.login, login = nil, nil
+	mismatch := login != nil && (a.loginProvider != provider || a.loginOwner != owner)
+	if mismatch {
+		a.login = nil
 	}
 	a.loginMu.Unlock()
+	if mismatch {
+		// A sign-in begun for something else is ended, and not under the
+		// lock: Close waits out the callback server.
+		login.Close()
+		login = nil
+	}
 	if login == nil {
 		return nil, fmt.Errorf("no %s sign-in is in progress", provider)
 	}
@@ -629,8 +661,8 @@ func (a *App) Poll() (model.Overview, error) {
 	for _, acc := range accounts {
 		reading := quota.Fetch(ctx, acc, now)
 		_ = a.StoreReading(acc, reading)
-		if a.ctx != nil {
-			runtime.EventsEmit(a.ctx, "polled", acc.ID)
+		if ctx := a.runtimeCtx(); ctx != nil {
+			runtime.EventsEmit(ctx, "polled", acc.ID)
 		}
 	}
 	return a.overview()

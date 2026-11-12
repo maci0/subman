@@ -374,28 +374,57 @@ func (r *Root) AppendHistory(id string, entry model.HistoryEntry) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(filepath.Join(dir, "history.jsonl"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, filePerm)
+	path := filepath.Join(dir, "history.jsonl")
+	// The trim rewrites the whole file. An exclusive lock held across the
+	// append and that rewrite stops a second process, which shares this
+	// directory (the window and the CLI), from appending a line the trim
+	// never saw and then losing it when the rewrite is renamed into place.
+	unlock, err := lockHistory(path)
 	if err != nil {
 		return err
 	}
-	if _, err := f.Write(append(line, '\n')); err != nil {
-		f.Close()
+	defer unlock()
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, filePerm)
+	if err != nil {
 		return err
 	}
-	if err := f.Close(); err != nil {
-		return err
+	_, werr := f.Write(append(line, '\n'))
+	cerr := f.Close()
+	if werr != nil {
+		return werr
+	}
+	if cerr != nil {
+		return cerr
 	}
 	// History only returns maxHistory lines, but the file was append-only, so
 	// a long-lived account grew it without bound. The line above is durable;
 	// a trim that fails is retried on the next append and is not this entry's
 	// error, or a saved step would be reported as unrecorded.
-	_ = trimHistory(filepath.Join(dir, "history.jsonl"))
+	_ = trimHistory(path)
 	return nil
+}
+
+// lockHistory takes an exclusive lock on path, creating it if needed, and
+// returns the function that releases it. The lock lives on a sidecar so the
+// history file itself can be replaced by rename without the locker keeping
+// the old inode open: a lock on the history descriptor would survive the
+// rename and then guard a file the directory no longer names.
+func lockHistory(path string) (func(), error) {
+	f, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR, filePerm)
+	if err != nil {
+		return nil, err
+	}
+	if err := lockFile(f); err != nil {
+		f.Close()
+		return nil, err
+	}
+	return func() { f.Close() }, nil
 }
 
 // trimHistory rewrites path down to its last maxHistory lines once it has
 // grown past that. Lines that are not JSON are dropped, matching History,
-// which skips them.
+// which skips them. The caller holds the history lock, so no append lands
+// between the read and the rename that replaces the file.
 func trimHistory(path string) error {
 	body, err := os.ReadFile(path)
 	if err != nil {
