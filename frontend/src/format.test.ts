@@ -17,9 +17,15 @@ test("a date input value round-trips through the RFC 3339 form", () => {
   expect(iso).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
   expect(day(iso)).toBe("2026-11-20");
   expect(fromDay("")).toBeUndefined();
+  expect(fromDay("  ")).toBeUndefined();
   expect(fromDay("2026-02-31")).toBeUndefined();
   expect(fromDay("2026-13-01")).toBeUndefined();
   expect(fromDay("tomorrow")).toBeUndefined();
+  // A date copied from the account arrives with its time and must not be refused.
+  expect(fromDay("2026-11-20T00:00:00.000Z")).toBe("2026-11-20T00:00:00.000Z");
+  expect(fromDay("2026-11-20T18:30:00Z")).toBe("2026-11-20T18:30:00Z");
+  expect(fromDay("2026-11-20T18:30:00")).toBe("2026-11-20T18:30:00");
+  expect(fromDay("2026-02-31T00:00:00Z")).toBeUndefined();
 });
 
 test("tone follows the account threshold", () => {

@@ -108,7 +108,7 @@ export function SettingsSheet({
             <Field label="Plan-change command">
               <Input className="font-mono text-micro" placeholder="/path/to/change {from} {to}" value={form.changeCommand || ""} onInput={(e) => setForm({ ...form, changeCommand: e.currentTarget.value })} />
             </Field>
-            <p className="-mt-2 text-micro leading-prose text-muted-foreground">One executable, not a shell line. With none set, the ladder names the next step and does not take it.</p>
+            <p className="-mt-2 text-micro leading-prose text-muted-foreground">One executable and its arguments, split on spaces. Not a shell line: quotes, pipes, and <code className="font-mono">&&</code> are taken as part of an argument. <code className="font-mono">{"{from}"}</code> and <code className="font-mono">{"{to}"}</code> are the tiers; with neither written, both are added at the end. With none set, the ladder names the next plan change and does not take it; a banked reset still runs, since it needs no command.</p>
             <Label className="justify-between rounded-control border px-3 py-2.5">
               Ladder
               <Switch checked={form.ladder} onCheckedChange={(v) => setForm({ ...form, ladder: v })} />
@@ -344,7 +344,7 @@ function DayInput({ value, onChange }: { value: string; onChange: (day: string) 
       pattern="\d{4}-\d{2}-\d{2}"
       title="A date as YYYY-MM-DD"
       value={value}
-      onInput={(e) => onChange(e.currentTarget.value)}
+      onInput={(e) => onChange(e.currentTarget.value.replace(/^(\d{4}-\d{2}-\d{2})[T ].*/, "$1"))}
     />
   );
 }

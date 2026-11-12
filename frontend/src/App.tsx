@@ -7,7 +7,7 @@ import { Board } from "./board";
 import { Detail } from "./detail";
 import { AddDialog, SettingsSheet } from "./forms";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -358,10 +358,10 @@ export function App() {
         </span>
       </footer>
 
-      <AlertDialog open={confirmLadder} onOpenChange={setConfirmLadder}>
+      <AlertDialog open={confirmLadder} onOpenChange={(open) => { if (!open && busy === "ladder") return; setConfirmLadder(open); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{due.length > 0 ? `Run ${due.length} step${due.length === 1 ? "" : "s"}?` : "Nothing is due"}</AlertDialogTitle>
+            <AlertDialogTitle>{busy === "ladder" ? "Running the ladder" : due.length > 0 ? `Run ${due.length} step${due.length === 1 ? "" : "s"}?` : "Nothing is due"}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               {due.length > 0 ? (
                 <div>
@@ -381,8 +381,11 @@ export function App() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => run("ladder", async () => setOverview(await api.runLadder()))}>Run ladder</AlertDialogAction>
+            <AlertDialogCancel disabled={busy === "ladder"}>Cancel</AlertDialogCancel>
+            {/* Action closes the dialog itself, before the run starts. A plain button keeps it open so the run is visible and cannot be confirmed twice. */}
+            <Button disabled={busy === "ladder"} onClick={() => run("ladder", async () => { setOverview(await api.runLadder()); setConfirmLadder(false); })}>
+              {busy === "ladder" ? "Running" : "Run ladder"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -425,7 +428,7 @@ function summarize(overview: Overview | null): string {
   }
   const n = accounts.length;
   if (n === 0) return "no accounts";
-  const resetBit = saw ? `${resets} reset credit${resets === 1 ? "" : "s"}` : "no reset credits reported";
+  const resetBit = !saw ? "no reset credits reported" : resets === 0 ? "no reset credits" : `${resets} reset credit${resets === 1 ? "" : "s"}`;
   const soon = accounts.reduce((sum, view) => sum + expiringSoon(view.reading, overview.resetExpiryWarningMs).length, 0);
   return `${n} account${n === 1 ? "" : "s"}, ${resetBit}${soon > 0 ? `, ${soon} expiring soon` : ""}`;
 }

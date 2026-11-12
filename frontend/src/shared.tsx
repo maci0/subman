@@ -6,7 +6,7 @@ export const MINUTE_MS = 60_000;
 /** What each ladder phase means, shown on hover. */
 export const PHASE_HELP: Record<Phase, string> = {
   off: "The ladder is switched off for this account.",
-  unarmed: "The ladder is on but has no plan-change command, so it names the next step and does not take it.",
+  unarmed: "The ladder is on but has no plan-change command, so it names the next plan change and does not take it. A banked reset still runs, since it needs no command.",
   climbing: "The ladder steps up one tier when the fullest meter reaches the spend threshold.",
   waiting: "Parked on the lowest tier until the renewal date.",
   acting: "A plan change is in progress.",

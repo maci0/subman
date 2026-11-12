@@ -103,10 +103,8 @@ export function Detail({
                 <AlertTitle>Last poll failed</AlertTitle>
                 <AlertDescription className="break-words">
                   {reading.error || "The provider gave no reason."}
-                  <span className="text-muted-foreground">
-                    An expired login is the usual cause. Renew it here. If that fails too, open Edit and put a fresh login in.
-                  </span>
-                  <Button variant="outline" size="sm" className="mt-1 text-foreground" disabled={!!busy} onClick={onRenew}>{busy === "renew" ? "Renewing" : "Renew login"}</Button>
+                  <span className="mt-1 block text-muted-foreground">An expired login is the usual cause. Renew it, and if that fails too, open Edit and put a fresh login in.</span>
+                  <Button variant="outline" size="sm" className="mt-2 text-foreground" disabled={!!busy} onClick={onRenew}>{busy === "renew" ? "Renewing" : "Renew login"}</Button>
                 </AlertDescription>
               </Alert>
             ) : null}

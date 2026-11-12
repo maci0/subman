@@ -34,16 +34,22 @@ export function day(iso: string | undefined): string {
 
 /**
  * A YYYY-MM-DD day as the RFC 3339 instant Go's time.Time decodes: local
- * midnight of that day. Undefined for an empty string and for a day that
- * does not exist, such as 2026-02-31.
+ * midnight of that day. A pasted instant (the RFC 3339 text the account
+ * stores, or the same day with a time) keeps its calendar day, so the field
+ * does not reject a value copied from the account. Undefined for an empty
+ * string and for a day that does not exist, such as 2026-02-31.
  */
 export function fromDay(value: string): string | undefined {
-  const t = parse(value ? `${value}T00:00:00` : undefined);
-  if (!t) {
+  const typed = value.trim();
+  if (!typed) {
     return undefined;
   }
-  const iso = t.toISOString();
-  return day(iso) === value ? iso : undefined;
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(typed);
+  const t = parse(dateOnly ? `${typed}T00:00:00` : typed);
+  if (!t || day(t.toISOString()) !== typed.slice(0, 10)) {
+    return undefined;
+  }
+  return dateOnly ? t.toISOString() : typed;
 }
 
 export function shortDay(iso: string | undefined): string {
