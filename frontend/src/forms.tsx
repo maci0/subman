@@ -49,6 +49,8 @@ export function SettingsSheet({
   // focus lands on it (WCAG 3.3.1).
   const [errorField, setErrorField] = useState("");
   const errorId = useId();
+  const ladderId = useId();
+  const resetId = useId();
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (!formError || !errorField) return;
@@ -128,14 +130,14 @@ export function SettingsSheet({
               <Input className="font-mono text-micro" placeholder="/path/to/change {from} {to}" value={form.changeCommand || ""} onInput={(e) => setForm({ ...form, changeCommand: e.currentTarget.value })} />
             </Field>
             <p className="-mt-2 text-micro leading-prose text-muted-foreground">One executable and its arguments, split on spaces. Not a shell line: quotes, pipes, and <code className="font-mono">&&</code> are taken as part of an argument. <code className="font-mono">{"{from}"}</code> and <code className="font-mono">{"{to}"}</code> are the tiers; with neither written, both are added at the end. With none set, the ladder names the next plan change and does not take it; a banked reset still runs, since it needs no command.</p>
-            <Label className="justify-between rounded-control border px-3 py-2.5">
-              Ladder
-              <Switch checked={form.ladder} onCheckedChange={(v) => setForm({ ...form, ladder: v })} />
-            </Label>
-            <Label className="justify-between rounded-control border px-3 py-2.5">
-              Use a banked reset when the highest tier is spent
-              <Switch checked={form.autoReset} onCheckedChange={(v) => setForm({ ...form, autoReset: v })} />
-            </Label>
+            <div className="flex items-center justify-between rounded-control border px-3 py-2.5">
+              <Label htmlFor={ladderId}>Ladder</Label>
+              <Switch id={ladderId} checked={form.ladder} onCheckedChange={(v) => setForm({ ...form, ladder: v })} />
+            </div>
+            <div className="flex items-center justify-between rounded-control border px-3 py-2.5">
+              <Label htmlFor={resetId}>Use a banked reset when the highest tier is spent</Label>
+              <Switch id={resetId} checked={form.autoReset} onCheckedChange={(v) => setForm({ ...form, autoReset: v })} />
+            </div>
             <div className="mt-2 flex flex-col gap-3 border-t pt-4">
               <h3 className="font-semibold">Login</h3>
               {login ? (

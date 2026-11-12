@@ -58,7 +58,7 @@ export function Board({
         return (
           <details key={provider} className="min-w-0" open={!shut} onToggle={(e) => fold(provider, !e.currentTarget.open)}>
             <summary className="mb-1 flex cursor-pointer list-none items-center gap-2 rounded-chip outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-              <ChevronRight className={`size-4 text-muted-foreground transition-transform ${shut ? "" : "rotate-90"}`} />
+              <ChevronRight className={`size-4 text-muted-foreground motion-safe:transition-transform ${shut ? "" : "rotate-90"}`} />
               <AgentMark provider={provider} className="size-4" />
               <h2 className="text-intro font-bold">{title(provider)}</h2>
               <span className="text-micro text-muted-foreground">
@@ -131,7 +131,18 @@ function BoardRow({
     <tr className="cursor-pointer border-t hover:bg-secondary/50 focus-within:bg-secondary/50 [&>*]:py-2 [&>*]:pr-5 [&>*]:align-top" onClick={onSelect}>
       <th scope="row" className="pl-2 text-left font-normal">
         {/* The click bubbles to the row; the button is there for the keyboard. */}
-        <button id={rowId(view.account.id)} aria-label={`Open ${view.account.name}`} className="flex max-w-full items-center gap-1.5 rounded-chip py-0.5 font-semibold outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring">
+        <button
+          id={rowId(view.account.id)}
+          type="button"
+          aria-label={`Open ${view.account.name}`}
+          className="flex max-w-full items-center gap-1.5 rounded-chip py-0.5 font-semibold outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring"
+          onClick={(e) => { e.stopPropagation(); onSelect(); }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            onSelect();
+          }}
+        >
           <AgentMark provider={view.account.provider} className="size-3.5" />
           <span className="truncate" title={view.account.name}>{view.account.name}</span>
         </button>

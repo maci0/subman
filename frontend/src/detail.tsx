@@ -173,9 +173,9 @@ function Ladder({ view, threshold, onEdit }: { view: AccountView; threshold: num
           const next = rank === nextRank;
           const state = on ? "on" : next ? "next" : currentRank !== undefined && rank < currentRank ? "below" : "above";
           return (
-            <li key={rank} className="flex w-[120px] shrink-0 flex-col gap-2" aria-current={on ? "step" : undefined} aria-label={`${here.map((t) => t.label).join(", ")}${on ? ", current tier" : next ? ", next step" : ""}`}>
+            <li key={rank} className="flex w-[120px] shrink-0 flex-col gap-2" aria-current={on ? "step" : undefined} aria-label={`${here.map((t) => t.label).join(", ")}${on ? ", current tier" : next ? ", next step" : ""}${on && util !== null ? `, ${Math.round(util)}% spent` : ""}`}>
               <div
-                className={`step ${on && util === null ? "absent" : ""}`}
+                className={`step ${on && util === null ? "absent" : ""} ${on && util !== null && util >= threshold ? "step-spent" : ""}`}
                 data-state={state}
                 style={{ height: STEP_BASE_PX + i * STEP_RISE_PX, "--tone": util === null ? "var(--color-text-muted)" : tone(util, threshold) }}
               >

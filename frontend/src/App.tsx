@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "preact/hooks";
 import { Plus, RefreshCw, ShieldAlert, ShieldCheck, TriangleAlert, X } from "lucide-preact";
 import { api, onPolled, whenBridge } from "./api";
 import type { AccountView, ImportRequest, LoginStart, Overview, ProbeResult, ProviderInfo, Settings } from "./types";
@@ -46,6 +46,8 @@ export function App() {
   /** The account whose settings sheet is open. */
   const [editing, setEditing] = useState<string>("");
   const [confirmLadder, setConfirmLadder] = useState(false);
+  const pollId = useId();
+  const notifyId = useId();
   /** The browser sign-in in progress and its owner (ADD_OWNER or an account id). */
   const [login, setLogin] = useState<{ start: LoginStart; owner: string } | null>(null);
   // Bumped by every sign-in and every cancel, so a sign-in that was closed
@@ -328,10 +330,11 @@ export function App() {
       <footer className="flex flex-wrap items-center justify-between gap-x-4 border-t px-5 py-1.5 text-micro text-muted-foreground">
         <span className="truncate font-mono text-micro">{overview?.dataDir || ""}</span>
         <span className="flex flex-wrap items-center justify-end gap-1">
-          <label className="mr-3 flex min-h-6 items-center gap-1.5 whitespace-nowrap">
-            Poll automatically
+          <span className="mr-3 flex min-h-6 items-center gap-1.5 whitespace-nowrap">
+            <label htmlFor={pollId}>Poll automatically</label>
             <span className="w-[8.75rem]">
             <NativeSelect
+              id={pollId}
               className="h-7 py-0 pr-8 pl-2 text-micro text-foreground"
               value={autoPoll}
               disabled={!settings}
@@ -340,11 +343,11 @@ export function App() {
               {(overview?.autoPollChoices ?? []).map((m) => <NativeSelectOption key={m} value={m}>{m === 0 ? "never" : m < 60 ? `every ${m} min` : "every hour"}</NativeSelectOption>)}
             </NativeSelect>
             </span>
-          </label>
-          <label className="mr-3 flex min-h-6 items-center gap-1.5" title="Show a desktop notification when an account's fullest meter reaches its spend threshold">
-            Notify at threshold
-            <Switch size="sm" checked={settings?.notify ?? false} disabled={!settings} onCheckedChange={(notify) => saveSettings({ notify })} />
-          </label>
+          </span>
+          <span className="mr-3 flex min-h-6 items-center gap-1.5" title="Show a desktop notification when an account's fullest meter reaches its spend threshold">
+            <label htmlFor={notifyId}>Notify at threshold</label>
+            <Switch id={notifyId} size="sm" checked={settings?.notify ?? false} disabled={!settings} onCheckedChange={(notify) => saveSettings({ notify })} />
+          </span>
           {overview ? `v${overview.version}` : null}
           <Button
             variant="link"

@@ -134,6 +134,15 @@
   transition: width var(--duration-meter) var(--ease-out);
 }
 
+/* Hatch over the colour, so a spent or near-spent meter is told apart without it. */
+@utility meter-fill-near {
+  background-image: repeating-linear-gradient(-45deg, transparent 0 3px, rgb(255 255 255 / 55%) 3px 4px);
+}
+
+@utility meter-fill-spent {
+  background-image: repeating-linear-gradient(45deg, transparent 0 3px, rgb(255 255 255 / 70%) 3px 4px), repeating-linear-gradient(-45deg, transparent 0 3px, rgb(255 255 255 / 70%) 3px 4px);
+}
+
 /* The spend threshold, drawn across the track. */
 @utility meter-tick {
   position: absolute;
@@ -175,6 +184,11 @@
   border-top: 2px solid var(--tone);
   background: color-mix(in oklab, var(--tone) 30%, transparent);
   transition: height var(--duration-meter) var(--ease-out);
+}
+
+/* A current tier that has reached its spend threshold, hatched so the colour is not the only cue. */
+@utility step-spent {
+  background-image: repeating-linear-gradient(45deg, transparent 0 5px, var(--color-surface-3) 5px 6px);
 }
 
 @utility step-tick {

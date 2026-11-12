@@ -95,7 +95,7 @@ export function relative(iso: string | undefined, now: number = Date.now()): str
 }
 
 /** Points below the spend threshold at which a meter turns to the warning colour. */
-const WARN_MARGIN = 20;
+export const WARN_MARGIN = 20;
 
 /** The CSS colour for a utilization against the account's spend threshold. */
 export function tone(util: number, threshold: number): string {
