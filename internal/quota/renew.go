@@ -1,12 +1,12 @@
 package quota
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -266,33 +266,13 @@ func postForm(ctx context.Context, url string, fields map[string]string) (token,
 	return token{Access: raw.AccessToken, Refresh: raw.RefreshToken, ExpiresIn: raw.ExpiresIn, IDToken: raw.IDToken}, nil
 }
 
+// urlEncode encodes the three fields a refresh posts, in that order.
 func urlEncode(fields map[string]string) string {
-	var buf bytes.Buffer
-	first := true
+	form := url.Values{}
 	for _, key := range []string{"grant_type", "refresh_token", "client_id"} {
-		if !first {
-			buf.WriteByte('&')
-		}
-		first = false
-		buf.WriteString(key)
-		buf.WriteByte('=')
-		buf.WriteString(queryEscape(fields[key]))
+		form.Set(key, fields[key])
 	}
-	return buf.String()
-}
-
-func queryEscape(s string) string {
-	var buf bytes.Buffer
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		switch {
-		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '-', c == '_', c == '.', c == '~':
-			buf.WriteByte(c)
-		default:
-			fmt.Fprintf(&buf, "%%%02X", c)
-		}
-	}
-	return buf.String()
+	return form.Encode()
 }
 
 func hostOf(url string) string {
