@@ -103,6 +103,7 @@ var commands = []commandSpec{
 			flag("--change-command", "string", "One executable and its arguments, with {from} and {to}. Empty disarms the ladder."),
 			flag("--agent-bin", "string", "Agent CLI for accounts test. Empty means the one on PATH."),
 			flag("--threshold", "number", "Percent used that counts as spent, 1 to 100."),
+			flag("--price", "string", "Monthly price as an amount and an ISO currency code, such as \"10.98 SGD\". Shown when the provider states none. Empty clears it."),
 			flag("--credential", "string", "Absolute path of a fresh login file to copy over this account's copy."),
 		},
 		OutputFields: []any{field("account", "object", "The subscription after the change.", nil)},

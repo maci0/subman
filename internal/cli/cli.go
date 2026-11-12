@@ -295,6 +295,9 @@ func accountsShow(root *store.Root, id string, streams IO, format string) error 
 			fmt.Fprintf(w, "renewal   %s\n", acc.RenewalAt.UTC().Format("2006-01-02"))
 		}
 		if !ok {
+			if acc.Price != nil {
+				fmt.Fprintf(w, "price     %s (typed)\n", perMonth(acc.Price, ""))
+			}
 			_, err := fmt.Fprintln(w, "reading   none")
 			return err
 		}
@@ -311,6 +314,18 @@ func accountsShow(root *store.Root, id string, streams IO, format string) error 
 		}
 		if reading.Credits.ResetCount != nil {
 			fmt.Fprintf(w, "resets    %d\n", *reading.Credits.ResetCount)
+		}
+		switch {
+		case reading.Ends:
+			fmt.Fprintf(w, "ends      %s\n", day(reading.NextPlanAt))
+		case reading.NextPlan != "":
+			fmt.Fprintf(w, "next      %s from %s%s\n", reading.NextPlan, day(reading.NextPlanAt), perMonth(reading.NextPrice, ", "))
+		}
+		switch {
+		case reading.Price != nil:
+			fmt.Fprintf(w, "price     %s\n", perMonth(reading.Price, ""))
+		case acc.Price != nil:
+			fmt.Fprintf(w, "price     %s (typed)\n", perMonth(acc.Price, ""))
 		}
 		return nil
 	})
@@ -512,4 +527,20 @@ func orNA(s string) string {
 		return "n/a"
 	}
 	return s
+}
+
+// day is the date part of an RFC 3339 instant.
+func day(rfc3339 string) string {
+	if t, err := time.Parse(time.RFC3339, rfc3339); err == nil {
+		return t.UTC().Format("2006-01-02")
+	}
+	return rfc3339
+}
+
+// perMonth writes a price as "10.98 SGD/month" after prefix, or "" for none.
+func perMonth(p *model.Price, prefix string) string {
+	if p == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s%.2f %s/month", prefix, p.Amount, p.Currency)
 }

@@ -39,7 +39,16 @@ Sign-in has been run up to each provider's login page, and no further: the appro
 
 Antigravity quotas come from `agy --print /usage`. That needs `agy` on `PATH` and a signed-in CLI. subman does not sign in to it or renew its token.
 
-Codex states its activation and renewal dates and subman fills them in. Claude states its plan and when the subscription began; the renewal shown for it is an estimate (the next monthly anniversary) and says so, so set the real date in Edit if yours differs. Grok and Antigravity state neither a tier nor a date.
+What each provider states about billing, read with the login subman already holds:
+
+| | Plan | Renewal | Plan at renewal | Monthly price |
+|---|---|---|---|---|
+| Codex | yes | yes | yes, or that it ends | list price in your billing currency, tax included; none for a yearly or discounted plan |
+| Grok | yes | yes | yes, or that it ends | no |
+| Claude | yes | estimated from the start date, marked as an estimate | no | no |
+| Antigravity | no | no | no | no |
+
+Claude's subscription details endpoint refuses OAuth logins, so its renewal is the next monthly anniversary of the start; set the real date in Edit if yours differs. Where no price is stated, type one in Edit or with `--price`; it is shown only while the provider states none.
 
 Notifications and the light or dark startup frame are Linux only.
 
@@ -77,6 +86,7 @@ subman accounts list
 subman accounts add --provider claude                      # prints the sign-in page, then waits
 subman accounts add --name agy --provider antigravity --credential ~/.gemini/antigravity-cli/antigravity-oauth-token
 subman accounts set <id> --renewal 2026-12-01 --ladder on
+subman accounts set <id> --price "10.98 SGD"               # for a provider that states no price
 subman accounts poll
 subman ladder run --dry-run
 subman accounts remove <id>

@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "preact/hooks";
 import { ArrowDown, ArrowLeft, ArrowUp, CircleCheck, CircleX, Pencil, TriangleAlert } from "lucide-preact";
-import { num, pct, relative, shortDay, tone, when } from "./format";
+import { num, perMonth, pct, relative, tone, when } from "./format";
 import type { AccountView, Advice, HistoryEntry, ProbeResult, Reading, Tier } from "./types";
-import { AgentMark, Meter, NextSteps, PHASE_HELP, expiringSoon, labelOf, phaseLabel, planOf, primary, rungs, stepLabel, title } from "./shared";
+import { AgentMark, Meter, NextSteps, PHASE_HELP, expiringSoon, labelOf, phaseLabel, planOf, priceOf, primary, renewalText, rungs, stepLabel, title } from "./shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,8 @@ export function Detail({
   const tested = probe && probe.accountId === view.account.id ? probe : null;
   const history = view.history ?? [];
   const aside = history.length > 0 || tested !== null;
+  const renewal = renewalText(view);
+  const cost = priceOf(view);
 
   return (
     <div className="flex flex-col gap-5">
@@ -72,9 +74,14 @@ export function Detail({
         <p className="mt-2.5 flex flex-wrap items-center gap-2 text-muted-foreground">
           <span className="mr-1 text-foreground">{title(view.account.provider)} {planOf(view)}</span>
           <Badge variant={view.ladder.phase === "acting" ? "default" : "secondary"} title={PHASE_HELP[view.ladder.phase]}>{phaseLabel(view.ladder.phase)}</Badge>
-          {view.account.renewalAt ? (
-            <Badge variant="outline" title={when(view.account.renewalAt)}>
-              renews {view.account.renewalEstimated ? "about " : ""}{shortDay(view.account.renewalAt)}, {relative(view.account.renewalAt)}
+          {renewal ? (
+            <Badge variant="outline" title={when(view.reading?.ends ? view.reading.nextPlanAt : view.account.renewalAt)}>
+              {renewal}, {relative(view.reading?.ends ? view.reading.nextPlanAt : view.account.renewalAt)}
+            </Badge>
+          ) : null}
+          {cost ? (
+            <Badge variant="outline" title={cost.typed ? "Typed in Edit; the provider states no price" : "List price the provider states, tax included"}>
+              {perMonth(cost.price)}{view.reading?.nextPrice ? `, then ${perMonth(view.reading.nextPrice)}` : ""}
             </Badge>
           ) : null}
         </p>

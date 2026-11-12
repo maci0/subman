@@ -1,5 +1,5 @@
-import { relative, tone, WARN_MARGIN, when } from "./format";
-import type { Account, AccountView, Advice, Phase, Provider, Reading, ResetCredit, Step, Tier } from "./types";
+import { day, relative, shortDay, tone, WARN_MARGIN, when } from "./format";
+import type { Account, AccountView, Advice, Phase, Price, Provider, Reading, ResetCredit, Step, Tier } from "./types";
 
 export const MINUTE_MS = 60_000;
 
@@ -62,6 +62,34 @@ export function expiringSoon(reading: Reading | undefined, warningMs: number): R
     const left = new Date(r.expiresAt).getTime() - now;
     return left > 0 && left <= warningMs;
   });
+}
+
+/**
+ * What the renewal does, as the provider states it: "renews 17 Nov", "renews
+ * 17 Nov as Plus", or "ends 17 Nov". Null when no renewal is known.
+ */
+export function renewalText(view: AccountView): string | null {
+  const r = view.reading;
+  if (r?.ends && r.nextPlanAt) {
+    return `ends ${shortDay(r.nextPlanAt)}`;
+  }
+  const at = view.account.renewalAt;
+  const renews = at ? `renews ${view.account.renewalEstimated ? "about " : ""}${shortDay(at)}` : null;
+  if (!r?.nextPlan || !r.nextPlanAt) {
+    return renews;
+  }
+  if (renews && day(at) === day(r.nextPlanAt)) {
+    return `${renews} as ${r.nextPlan}`;
+  }
+  return `${renews ? `${renews}, ` : ""}${r.nextPlan} from ${shortDay(r.nextPlanAt)}`;
+}
+
+/** The monthly price to show: the one the provider states, else the one typed in Edit. */
+export function priceOf(view: AccountView): { price: Price; typed: boolean } | null {
+  if (view.reading?.price) {
+    return { price: view.reading.price, typed: false };
+  }
+  return view.account.price ? { price: view.account.price, typed: true } : null;
 }
 
 export function renewalTitle(acc: Account): string {

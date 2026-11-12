@@ -24,6 +24,14 @@ export interface Account {
   agentHome: string;
   agentBin?: string;
   usageThreshold?: number;
+  /** The monthly price the operator typed. Shown when the reading states none. */
+  price?: Price;
+}
+
+/** A monthly charge in an ISO 4217 currency. */
+export interface Price {
+  amount: number;
+  currency: string;
 }
 
 export interface WindowMeter {
@@ -56,6 +64,14 @@ export interface Reading {
   tierId?: string;
   windows: WindowMeter[];
   credits: Credits;
+  /** The plan the provider says starts at nextPlanAt. */
+  nextPlan?: string;
+  nextPlanAt?: string;
+  /** The subscription stops at nextPlanAt instead of renewing. */
+  ends?: boolean;
+  /** Monthly list prices, tax included, the provider states for the current and next plan. */
+  price?: Price;
+  nextPrice?: Price;
 }
 
 export type Phase = "off" | "unarmed" | "climbing" | "waiting" | "acting";

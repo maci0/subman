@@ -266,6 +266,17 @@ func TestAccountsAddSetRemove(t *testing.T) {
 	run(t, 2, "accounts", "set", id, "--tier", "nope")
 	run(t, 2, "accounts", "set", id, "--threshold", "250")
 	run(t, 2, "accounts", "set", id, "--threshold", "NaN")
+	for _, bad := range []string{"10.98", "-1 USD", "10 dollars", "NaN USD", "1 2 USD"} {
+		run(t, 2, "accounts", "set", id, "--price", bad)
+	}
+	priced := run(t, 0, "accounts", "set", id, "--price", "SGD 10.98")["account"].(map[string]any)
+	if p, _ := priced["price"].(map[string]any); p["amount"] != 10.98 || p["currency"] != "SGD" {
+		t.Fatal("price", priced["price"])
+	}
+	if run(t, 0, "accounts", "set", id, "--price", "")["account"].(map[string]any)["price"] != nil {
+		t.Fatal("an empty --price kept the price")
+	}
+	run(t, 0, "accounts", "set", id, "--price", "30 usd")
 	// A bad credential path changes nothing, the name included.
 	run(t, 1, "accounts", "set", id, "--name", "renamed", "--credential", filepath.Join(dir, "missing.json"))
 	if shown := run(t, 0, "accounts", "show", id)["account"].(map[string]any); shown["name"] != "work" {

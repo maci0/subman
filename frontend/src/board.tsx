@@ -1,8 +1,8 @@
 import { useEffect } from "preact/hooks";
 import { ChevronRight, Pencil, RefreshCw, TriangleAlert } from "lucide-preact";
-import { pct, relative, shortDay, when } from "./format";
+import { perMonth, pct, relative, when } from "./format";
 import type { AccountView, Advice, Provider, Reading } from "./types";
-import { AgentMark, Meter, NextSteps, PHASE_HELP, expiringSoon, labelOf, phaseLabel, planOf, primary, renewalTitle, rungs, title } from "./shared";
+import { AgentMark, Meter, NextSteps, PHASE_HELP, expiringSoon, labelOf, phaseLabel, planOf, priceOf, primary, renewalText, renewalTitle, rungs, title } from "./shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -125,6 +125,8 @@ function BoardRow({
   onPoll: () => void;
 }) {
   const reading = view.reading;
+  const renewal = renewalText(view);
+  const cost = priceOf(view);
   const threshold = view.threshold;
   const failed = reading !== undefined && !reading.ok;
   return (
@@ -179,8 +181,11 @@ function BoardRow({
         ) : (
           <Badge variant="secondary" className="max-w-full" title={PHASE_HELP[view.ladder.phase]}><span className="truncate">{phaseLabel(view.ladder.phase)}</span></Badge>
         )}
-        {view.account.renewalAt ? (
-          <span className="mt-0.5 block truncate text-micro text-muted-foreground" title={renewalTitle(view.account)}>renews {view.account.renewalEstimated ? "about " : ""}{shortDay(view.account.renewalAt)}</span>
+        {renewal ? (
+          <span className="mt-0.5 block truncate text-micro text-muted-foreground" title={view.account.renewalAt ? `${renewal}: ${renewalTitle(view.account)}` : renewal}>{renewal}</span>
+        ) : null}
+        {cost ? (
+          <span className="block truncate text-micro text-muted-foreground" title={cost.typed ? "Typed in Edit; the provider states no price" : "List price the provider states, tax included"}>{perMonth(cost.price)}</span>
         ) : null}
       </td>
       {/* The row opens the account; these two act in place. */}

@@ -2,7 +2,7 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useId, useRef, useState } from "preact/hooks";
 import { FolderOpen } from "lucide-preact";
 import { api, openExternal } from "./api";
-import { day, fromDay } from "./format";
+import { day, fromDay, parsePrice, perMonth, priceText } from "./format";
 import type { Account, AccountView, ImportRequest, LoginStart, ProviderInfo } from "./types";
 import { messageOf, title } from "./shared";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -47,6 +47,7 @@ export function SettingsSheet({
   const [renewal, setRenewal] = useState(day(view.account.renewalAt));
   // The threshold is edited as text too, so the field can be emptied while typing.
   const [threshold, setThreshold] = useState(String(view.threshold));
+  const [price, setPrice] = useState(priceText(view.account.price));
   const [formError, setFormError] = useState("");
   // The field the error belongs to, so it is announced with that field and
   // focus lands on it (WCAG 3.3.1).
@@ -66,7 +67,8 @@ export function SettingsSheet({
     settled(form) !== settled(opened.current) ||
     activated !== day(opened.current.activatedAt) ||
     renewal !== day(opened.current.renewalAt) ||
-    threshold !== openedThreshold.current;
+    threshold !== openedThreshold.current ||
+    price !== priceText(opened.current.price);
 
   return (
     <Sheet
@@ -119,9 +121,15 @@ export function SettingsSheet({
               setFormError("The spend threshold is a number from 1 to 100.");
               return;
             }
+            const typed = parsePrice(price);
+            if (typed === undefined) {
+              setErrorField("price");
+              setFormError("The monthly price is an amount and a currency code, such as 10.98 SGD, or nothing.");
+              return;
+            }
             setFormError("");
             setErrorField("");
-            onSave({ ...form, name, ...dates, usageThreshold });
+            onSave({ ...form, name, ...dates, usageThreshold, price: typed ?? undefined });
           }}
         >
           <div className="flex flex-1 flex-col gap-4 overflow-auto px-4 pb-4">
@@ -136,9 +144,10 @@ export function SettingsSheet({
               <Field label="Activated"><DayInput name="activatedAt" invalid={errorField === "activatedAt"} describedBy={errorField === "activatedAt" ? errorId : undefined} value={activated} onChange={setActivated} /></Field>
               <Field label="Renewal"><DayInput name="renewalAt" invalid={errorField === "renewalAt"} describedBy={errorField === "renewalAt" ? errorId : undefined} value={renewal} onChange={setRenewal} /></Field>
               <Field label="Spend threshold, %"><Input name="usageThreshold" inputMode="numeric" aria-invalid={errorField === "usageThreshold" || undefined} aria-describedby={errorField === "usageThreshold" ? errorId : undefined} value={threshold} onInput={(e) => setThreshold(e.currentTarget.value)} /></Field>
+              <Field label="Monthly price"><Input name="price" placeholder={view.reading?.price ? perMonth(view.reading.price) : "10.98 SGD"} aria-invalid={errorField === "price" || undefined} aria-describedby={errorField === "price" ? errorId : undefined} value={price} onInput={(e) => setPrice(e.currentTarget.value)} /></Field>
               <Field label="Agent binary"><Input placeholder="the one on PATH" value={form.agentBin || ""} onInput={(e) => setForm({ ...form, agentBin: e.currentTarget.value })} /></Field>
             </div>
-            <p className="-mt-2 text-micro leading-prose text-muted-foreground">A good poll replaces the tier, and the dates where the provider states them, with the provider's own.</p>
+            <p className="-mt-2 text-micro leading-prose text-muted-foreground">A good poll replaces the tier, and the dates where the provider states them, with the provider's own. The monthly price is shown only when the provider states none.</p>
             <Field label="Plan-change command">
               <Input className="font-mono text-micro" placeholder="/path/to/change {from} {to}" value={form.changeCommand || ""} onInput={(e) => setForm({ ...form, changeCommand: e.currentTarget.value })} />
             </Field>

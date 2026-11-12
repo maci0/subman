@@ -1,6 +1,7 @@
 package model
 
 import (
+	"math"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -40,5 +41,18 @@ func TestTruncateBytesOnARuneBoundary(t *testing.T) {
 	}
 	if got := TruncateBytes(body, len(body)); string(got) != string(body) {
 		t.Fatalf("whole: %q", got)
+	}
+}
+
+func TestPriceValid(t *testing.T) {
+	for _, p := range []Price{{0, "USD"}, {10.98, "SGD"}} {
+		if !p.Valid() {
+			t.Errorf("%+v refused", p)
+		}
+	}
+	for _, p := range []Price{{-1, "USD"}, {math.NaN(), "USD"}, {math.Inf(1), "USD"}, {1, "usd"}, {1, "US"}, {1, "../"}} {
+		if p.Valid() {
+			t.Errorf("%+v accepted", p)
+		}
 	}
 }

@@ -547,3 +547,31 @@ func TestOverviewCarriesWhatTheWindowWouldOtherwiseMirror(t *testing.T) {
 		t.Fatalf("choices %v, warning %d ms", ov.AutoPollChoices, ov.ResetExpiryWarningMs)
 	}
 }
+
+// A typed price is saved when valid and refused, saving nothing, when not.
+func TestUpdateAccountPrice(t *testing.T) {
+	dir := t.TempDir()
+	root, err := store.Open(filepath.Join(dir, "data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := filepath.Join(dir, "cred.json")
+	if err := os.WriteFile(src, []byte(`{}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a := New(root)
+	view, err := a.Import(model.ImportRequest{Name: "grok", Provider: model.ProviderGrok, CredentialPath: src})
+	if err != nil {
+		t.Fatal(err)
+	}
+	acc := view.Account
+	acc.Price = &model.Price{Amount: 10.98, Currency: "sgd"}
+	if _, err := a.UpdateAccount(acc); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("lower-case currency: %v", err)
+	}
+	acc.Price.Currency = "SGD"
+	saved, err := a.UpdateAccount(acc)
+	if err != nil || saved.Account.Price == nil || *saved.Account.Price != (model.Price{Amount: 10.98, Currency: "SGD"}) {
+		t.Fatalf("saved %+v, %v", saved.Account.Price, err)
+	}
+}

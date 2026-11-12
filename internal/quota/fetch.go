@@ -22,7 +22,6 @@ const (
 	claudeUA  = "claude-cli/2.1.322 (external, cli)"
 	claudeApp = "cli"
 
-	grokBillingURL = "https://cli-chat-proxy.grok.com/v1/billing"
 	userAgent      = "subman/0.1"
 	defaultTimeout = 20 * time.Second
 )
@@ -40,8 +39,11 @@ func TestingClaudeURL(base string) func() {
 	return func() { claudeUsageURL, claudeProfileURL = savedUsage, savedProfile }
 }
 
-// codexUsageURL is a var so a test can point it at a local server.
-var codexUsageURL = "https://chatgpt.com/backend-api/wham/usage"
+// codexUsageURL and grokBillingURL are vars so a test can point them at a local server.
+var (
+	codexUsageURL  = "https://chatgpt.com/backend-api/wham/usage"
+	grokBillingURL = "https://cli-chat-proxy.grok.com/v1/billing"
+)
 
 // Fetch reads the account's own credential file and polls its provider.
 //
@@ -233,16 +235,22 @@ func fetchCodex(ctx context.Context, cred map[string]any, now time.Time) model.R
 	if status != 200 {
 		return fail(fmt.Sprintf("http-%d", status), now)
 	}
-	// The reset list does not need the parsed usage, only that it succeeded,
-	// so it runs while the usage body is decoded.
+	// The reset list and the subscription do not need the parsed usage, so
+	// they run while the usage body is decoded.
 	var resets []model.ResetCredit
-	var r model.Reading
+	var r, sub model.Reading
 	var wg sync.WaitGroup
 	wg.Go(func() { resets = codexResets(ctx, token, headers) })
+	if id := asString(tokens["account_id"]); id != "" {
+		wg.Go(func() { sub = codexSubscription(ctx, token, headers, id) })
+	}
 	wg.Go(func() { r = Parse(model.ProviderCodex, body, now) })
 	wg.Wait()
 	if r.OK && resets != nil {
 		r.Credits.Resets = resets
+	}
+	if r.OK {
+		addSubscription(&r, sub)
 	}
 	return r
 }
@@ -252,14 +260,16 @@ func fetchGrok(ctx context.Context, cred map[string]any, now time.Time) model.Re
 	if token == "" {
 		return fail("no-token", now)
 	}
-	// The weekly and monthly views are separate calls with nothing in common,
-	// so they run together.
+	// The weekly and monthly views and the subscription are separate calls
+	// with nothing in common, so they run together.
 	var status, status2 int
 	var body, body2 []byte
 	var err, err2 error
+	var sub model.Reading
 	var wg sync.WaitGroup
 	wg.Go(func() { status, body, err = get(ctx, grokBillingURL+"?format=credits", token, nil) })
 	wg.Go(func() { status2, body2, err2 = get(ctx, grokBillingURL, token, nil) })
+	wg.Go(func() { sub = grokSubscription(ctx, token) })
 	wg.Wait()
 	if err != nil {
 		return fail("net", now)
@@ -279,7 +289,24 @@ func fetchGrok(ctx context.Context, cred map[string]any, now time.Time) model.Re
 			weekly.OK = true
 		}
 	}
+	if weekly.OK {
+		addSubscription(&weekly, sub)
+	}
 	return weekly
+}
+
+// addSubscription copies into r what a subscription call stated: the plan
+// name, the renewal, the next plan, and the prices. What it did not state is
+// left as the usage call made it.
+func addSubscription(r *model.Reading, sub model.Reading) {
+	if sub.Plan != "" {
+		r.Plan, r.TierID = sub.Plan, sub.TierID
+	}
+	if sub.RenewalAt != "" {
+		r.RenewalAt, r.RenewalEstimated = sub.RenewalAt, false
+	}
+	r.NextPlan, r.NextPlanAt, r.Ends = sub.NextPlan, sub.NextPlanAt, sub.Ends
+	r.Price, r.NextPrice = sub.Price, sub.NextPrice
 }
 
 // grokToken picks the access token with the latest expires_at.

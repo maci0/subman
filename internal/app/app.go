@@ -613,7 +613,8 @@ var ErrInvalid = errors.New("invalid account")
 
 // UpdateAccount saves the editable fields of acc. The name must be 1 to
 // model.MaxNameLen characters, the tier one of the provider's, and the
-// threshold 0 (the default) to 100; anything else returns ErrInvalid and
+// threshold 0 (the default) to 100, and a price valid by model.Price.Valid
+// or absent; anything else returns ErrInvalid and
 // saves nothing.
 func (a *App) UpdateAccount(acc model.Account) (model.AccountView, error) {
 	a.mu.Lock()
@@ -633,6 +634,8 @@ func (a *App) UpdateAccount(acc model.Account) (model.AccountView, error) {
 		return model.AccountView{}, fmt.Errorf("%w: threshold must be 1 to 100", ErrInvalid)
 	case acc.AgentBin != "" && sandbox.ValidProgram(acc.AgentBin) != nil:
 		return model.AccountView{}, fmt.Errorf("%w: agent binary must be a single path with no shell metacharacters", ErrInvalid)
+	case acc.Price != nil && !acc.Price.Valid():
+		return model.AccountView{}, fmt.Errorf("%w: price must be an amount of 0 or more and a three-letter currency code such as USD", ErrInvalid)
 	}
 	// Identity and the copied credential stay. The form edits the rest.
 	current.Name = acc.Name
@@ -650,6 +653,7 @@ func (a *App) UpdateAccount(acc model.Account) (model.AccountView, error) {
 	current.AutoReset = acc.AutoReset
 	current.AgentBin = acc.AgentBin
 	current.UsageThreshold = acc.UsageThreshold
+	current.Price = acc.Price
 	if err := a.root.Save(current); err != nil {
 		return model.AccountView{}, err
 	}

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { day, fromDay, num, pct, relative, tone } from "./format";
+import { day, fromDay, num, parsePrice, perMonth, pct, priceText, relative, tone } from "./format";
 
 const NOW = Date.parse("2026-11-11T12:00:00Z");
 
@@ -49,4 +49,15 @@ test("tone follows the account threshold", () => {
   expect(tone(75, 95)).toBe("var(--color-st-warn)");
   expect(tone(74, 95)).toBe("var(--color-accent)");
   expect(tone(60, 60)).toBe("var(--color-st-fail)");
+});
+
+test("a typed price is an amount and a currency code in either order", () => {
+  expect(parsePrice("10.98 SGD")).toEqual({ amount: 10.98, currency: "SGD" });
+  expect(parsePrice(" usd 30 ")).toEqual({ amount: 30, currency: "USD" });
+  expect(parsePrice("")).toBeNull();
+  for (const bad of ["10.98", "-1 USD", "1e3 USD", "10 dollars", "1 2 USD", "NaN USD"]) {
+    expect(parsePrice(bad)).toBeUndefined();
+  }
+  expect(parsePrice(priceText({ amount: 10.98, currency: "SGD" }))).toEqual({ amount: 10.98, currency: "SGD" });
+  expect(perMonth({ amount: 690, currency: "SGD" })).toMatch(/^SGD\s?690\.00\/month$/);
 });

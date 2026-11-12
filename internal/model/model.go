@@ -123,6 +123,31 @@ type Account struct {
 	// UsageThreshold is the percent used that counts as "spent" for a
 	// ladder step. Zero means DefaultUsageThreshold.
 	UsageThreshold float64 `json:"usageThreshold,omitempty"`
+
+	// Price is what the operator says the plan costs per month. The window
+	// shows it only when the reading states no price.
+	Price *Price `json:"price,omitempty"`
+}
+
+// Price is a monthly charge in the currency it is billed in.
+type Price struct {
+	Amount float64 `json:"amount"`
+	// Currency is an ISO 4217 code such as USD or SGD.
+	Currency string `json:"currency"`
+}
+
+// Valid reports whether p is a finite, non-negative amount below a billion
+// in a three-letter upper-case currency code.
+func (p Price) Valid() bool {
+	if !(p.Amount >= 0 && p.Amount < 1e9) || len(p.Currency) != 3 {
+		return false
+	}
+	for _, c := range p.Currency {
+		if c < 'A' || c > 'Z' {
+			return false
+		}
+	}
+	return true
 }
 
 const (
@@ -212,6 +237,15 @@ type Reading struct {
 	// monthly anniversary of the subscription start, for a provider that
 	// states when a subscription began and not when it renews.
 	RenewalEstimated bool `json:"renewalEstimated,omitempty"`
+	// NextPlan is the plan the provider says replaces the current one at
+	// NextPlanAt (RFC 3339). Ends instead says the subscription stops then.
+	NextPlan   string `json:"nextPlan,omitempty"`
+	NextPlanAt string `json:"nextPlanAt,omitempty"`
+	Ends       bool   `json:"ends,omitempty"`
+	// Price and NextPrice are the monthly list prices, tax included, the
+	// provider states for the current and the next plan.
+	Price     *Price `json:"price,omitempty"`
+	NextPrice *Price `json:"nextPrice,omitempty"`
 }
 
 // PrimaryUtil is the fullest meter, which is what the ladder watches.

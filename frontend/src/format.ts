@@ -1,3 +1,32 @@
+import type { Price } from "./types";
+
+/** A monthly price as the locale writes that currency, such as "SGD 10.98/month". */
+export function perMonth(p: Price): string {
+  return `${new Intl.NumberFormat(undefined, { style: "currency", currency: p.currency, currencyDisplay: "code" }).format(p.amount)}/month`;
+}
+
+/** A price as the Edit field shows it: "10.98 SGD". Empty for none. */
+export function priceText(p: Price | undefined): string {
+  return p ? `${p.amount} ${p.currency}` : "";
+}
+
+/**
+ * The Edit field's text as a price: an amount and a three-letter currency
+ * code in either order, such as "10.98 SGD". Null for an empty field, and
+ * undefined for text that is not a price. The same rule as the CLI's --price.
+ */
+export function parsePrice(text: string): Price | null | undefined {
+  const fields = text.trim().split(/\s+/).filter(Boolean);
+  if (fields.length === 0) return null;
+  if (fields.length !== 2) return undefined;
+  const [a, b] = fields;
+  const [amount, currency] = /^[A-Za-z]{3}$/.test(a) ? [b, a] : [a, b];
+  const n = Number(amount);
+  const code = currency.toUpperCase();
+  if (!/^\d+(\.\d+)?$/.test(amount) || !(n < 1e9) || !/^[A-Z]{3}$/.test(code)) return undefined;
+  return { amount: n, currency: code };
+}
+
 export function pct(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return "n/a";

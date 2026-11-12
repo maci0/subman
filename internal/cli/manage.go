@@ -123,14 +123,14 @@ func accountsAdd(root *store.Root, args []string, streams IO, format string) err
 }
 
 // setFlagOrder is the order accounts set applies its flags in.
-var setFlagOrder = []string{"--name", "--tier", "--activated", "--renewal", "--ladder", "--auto-reset", "--change-command", "--agent-bin", "--threshold"}
+var setFlagOrder = []string{"--name", "--tier", "--activated", "--renewal", "--ladder", "--auto-reset", "--change-command", "--agent-bin", "--threshold", "--price"}
 
-const setUsage = "subman accounts set <id> [--name NAME] [--tier ID] [--activated DATE] [--renewal DATE] [--ladder on|off] [--auto-reset on|off] [--change-command CMD] [--agent-bin PATH] [--threshold 1-100] [--credential /abs/path]"
+const setUsage = "subman accounts set <id> [--name NAME] [--tier ID] [--activated DATE] [--renewal DATE] [--ladder on|off] [--auto-reset on|off] [--change-command CMD] [--agent-bin PATH] [--threshold 1-100] [--price 'AMOUNT CUR'] [--credential /abs/path]"
 
 func accountsSet(root *store.Root, args []string, streams IO, format string) error {
 	flags, rest, ferr := takeFlags(args, map[string]bool{
 		"--name": true, "--tier": true, "--activated": true, "--renewal": true, "--ladder": true, "--auto-reset": true,
-		"--change-command": true, "--agent-bin": true, "--threshold": true, "--credential": true,
+		"--change-command": true, "--agent-bin": true, "--threshold": true, "--price": true, "--credential": true,
 	})
 	if ferr != nil {
 		ferr.Hint = setUsage
@@ -188,6 +188,12 @@ func accountsSet(root *store.Root, args []string, streams IO, format string) err
 				return usageErr("--threshold is a number from 1 to 100, got "+value, setUsage)
 			}
 			acc.UsageThreshold = n
+		case "--price":
+			p, perr := parsePrice(value)
+			if perr != nil {
+				return perr
+			}
+			acc.Price = p
 		}
 	}
 	// The new credential is read before anything is saved, so a bad path
@@ -315,4 +321,27 @@ func signIn(provider model.Provider, streams IO) ([]byte, error) {
 		return nil, unavailable("sign-in did not finish: " + err.Error())
 	}
 	return credential, nil
+}
+
+// parsePrice reads a monthly price typed as "AMOUNT CUR" or "CUR AMOUNT",
+// such as "10.98 SGD". An empty value clears the price.
+func parsePrice(value string) (*model.Price, error) {
+	fields := strings.Fields(value)
+	if len(fields) == 0 {
+		return nil, nil
+	}
+	bad := usageErr(`--price is an amount and a three-letter currency code, such as "10.98 SGD", got `+value, setUsage)
+	if len(fields) != 2 {
+		return nil, bad
+	}
+	amount, currency := fields[0], fields[1]
+	if _, err := strconv.ParseFloat(amount, 64); err != nil {
+		amount, currency = currency, amount
+	}
+	n, err := strconv.ParseFloat(amount, 64)
+	p := model.Price{Amount: n, Currency: strings.ToUpper(currency)}
+	if err != nil || !p.Valid() {
+		return nil, bad
+	}
+	return &p, nil
 }
