@@ -21,7 +21,7 @@ import (
 var assets embed.FS
 
 // version is the release this binary reports. A tag drops the leading v.
-var version = "0.1.1"
+var version = "0.1.2"
 
 // wantsCLI reports whether the arguments are a command rather than a
 // request to open the window. The command line follows CLI Spec v0.3.

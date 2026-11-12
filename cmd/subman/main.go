@@ -14,7 +14,7 @@ import (
 	"github.com/maci0/subman/internal/sandbox"
 )
 
-var version = "0.1.1"
+var version = "0.1.2"
 
 func main() {
 	// A sandboxed child is this binary started again: confine and exec it.

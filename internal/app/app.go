@@ -27,7 +27,7 @@ import (
 )
 
 // Version is set from main.
-var Version = "0.1.1"
+var Version = "0.1.2"
 
 // App is the bound Wails object.
 type App struct {
