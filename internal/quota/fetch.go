@@ -30,6 +30,16 @@ const (
 // claudeUsageURL is a var so a test can point it at a local server.
 var claudeUsageURL = "https://api.anthropic.com/api/oauth/usage"
 
+// TestingClaudeURL points the Claude usage and profile calls at base and
+// returns the restore function. It exists so a test outside this package
+// can stand in for the provider without dialing out. The reset list is the
+// usage call with a query, so it follows claudeUsageURL on its own.
+func TestingClaudeURL(base string) func() {
+	savedUsage, savedProfile := claudeUsageURL, claudeProfileURL
+	claudeUsageURL, claudeProfileURL = base, base
+	return func() { claudeUsageURL, claudeProfileURL = savedUsage, savedProfile }
+}
+
 // codexUsageURL is a var so a test can point it at a local server.
 var codexUsageURL = "https://chatgpt.com/backend-api/wham/usage"
 
@@ -66,7 +76,7 @@ func fetchRenewing(ctx context.Context, acc model.Account, now time.Time) (model
 		}
 		return fetch(ctx, acc, now)
 	}
-	reading, cred := fetch(ctx, acc, now)
+	reading := fetchWith(ctx, acc, cred, now)
 	if reading.Error == "http-401" {
 		if err := Renew(ctx, acc); err != nil {
 			return reading, cred
@@ -97,22 +107,31 @@ func readCredential(path string) (map[string]any, error) {
 	return cred, nil
 }
 
+// fetch reads the credential copy and polls with it. The renewal paths are
+// its only callers: they just rewrote the copy, so they must read it again.
 func fetch(ctx context.Context, acc model.Account, now time.Time) (model.Reading, map[string]any) {
 	cred, err := readCredential(acc.CredentialFile)
 	if err != nil {
 		return fail("no-token", now), nil
 	}
+	return fetchWith(ctx, acc, cred, now), cred
+}
+
+// fetchWith polls with a credential that was already read. The first attempt
+// uses the copy fetchRenewing decoded to check the expiry, so a poll that
+// does not renew reads the file once.
+func fetchWith(ctx context.Context, acc model.Account, cred map[string]any, now time.Time) model.Reading {
 	switch acc.Provider {
 	case model.ProviderClaude:
-		return fetchClaude(ctx, cred, now), cred
+		return fetchClaude(ctx, cred, now)
 	case model.ProviderCodex:
-		return fetchCodex(ctx, cred, now), cred
+		return fetchCodex(ctx, cred, now)
 	case model.ProviderGrok:
-		return fetchGrok(ctx, cred, now), cred
+		return fetchGrok(ctx, cred, now)
 	case model.ProviderAntigravity:
-		return fetchAntigravity(ctx, acc, now), cred
+		return fetchAntigravity(ctx, acc, now)
 	default:
-		return fail("unknown-provider", now), cred
+		return fail("unknown-provider", now)
 	}
 }
 
@@ -153,6 +172,11 @@ func fetchClaude(ctx context.Context, cred map[string]any, now time.Time) model.
 	if token == "" {
 		return fail("no-token", now)
 	}
+	// The profile names the plan and the subscription start. It does not
+	// depend on the usage call, so it starts with it rather than after it.
+	var profile model.Reading
+	var wg sync.WaitGroup
+	wg.Go(func() { profile = claudeProfile(ctx, token, now) })
 	status, body, err := get(ctx, claudeUsageURL, token, map[string]string{
 		"anthropic-beta":    "oauth-2025-04-20",
 		"anthropic-version": "2023-06-01",
@@ -160,18 +184,17 @@ func fetchClaude(ctx context.Context, cred map[string]any, now time.Time) model.
 		"x-app":             claudeApp,
 	})
 	if err != nil {
+		wg.Wait()
 		return fail("net", now)
 	}
 	if status != 200 {
+		wg.Wait()
 		return fail(fmt.Sprintf("http-%d", status), now)
 	}
 	r := Parse(model.ProviderClaude, body, now)
-	// The profile and the reset list are separate calls and neither needs
-	// the other's answer, so they run together.
-	var profile model.Reading
+	// The reset list is a second query of the same usage endpoint, and only
+	// a reading that parsed is worth itemising.
 	var credits model.Credits
-	var wg sync.WaitGroup
-	wg.Go(func() { profile = claudeProfile(ctx, token, now) })
 	if r.OK {
 		wg.Go(func() { credits = claudeResets(ctx, token) })
 	}
@@ -335,12 +358,34 @@ func get(ctx context.Context, url, token string, extra map[string]string) (int, 
 // noRedirect is the client for every request that carries a bearer token.
 // http.DefaultClient follows up to ten redirects and resends the headers,
 // which would hand the token to whatever host the first answer names.
+//
+// The transport is a copy of the default with a larger per-host idle pool.
+// DefaultMaxIdleConnsPerHost is 2, so polling several accounts of one
+// provider at once would open a fresh TLS connection for every account past
+// the second and then throw it away.
 var noRedirect = &http.Client{
 	// Callers also bound the request with a context. This caps a connection
 	// that never reaches a response, which a context does not: it only ends
 	// a request once the headers have started.
 	Timeout:       defaultTimeout,
+	Transport:     pooledTransport(),
 	CheckRedirect: refuseRedirect,
+}
+
+// pooledIdlePerHost is how many idle connections one provider's host keeps.
+// One poll opens at most a handful of requests per account (usage, profile,
+// resets), and accounts of one provider share a host, so this is the number
+// of accounts polled together that should not each pay for a new handshake.
+const pooledIdlePerHost = 8
+
+func pooledTransport() *http.Transport {
+	base, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return nil
+	}
+	t := base.Clone()
+	t.MaxIdleConnsPerHost = pooledIdlePerHost
+	return t
 }
 
 func refuseRedirect(*http.Request, []*http.Request) error {

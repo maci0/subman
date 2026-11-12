@@ -662,6 +662,18 @@ func (a *App) Delete(id string) error {
 	return a.root.Delete(id)
 }
 
+// pollTimeout bounds the whole of a Poll. Each account's own fetch also
+// carries quota's shorter per-request timeout, so one provider that never
+// answers cannot use the whole of this on its own.
+const pollTimeout = 90 * time.Second
+
+// pollParallel is how many accounts Poll fetches at once. The fetches are
+// network waits on different hosts, so doing them one after another makes a
+// poll take the sum of every account's round trip. The number is the most
+// providers subman knows, which is also the most distinct hosts one poll
+// talks to.
+const pollParallel = 4
+
 // Poll fetches every account. One failure does not stop the others.
 func (a *App) Poll() (model.Overview, error) {
 	a.mu.Lock()
@@ -671,19 +683,45 @@ func (a *App) Poll() (model.Overview, error) {
 		return model.Overview{}, err
 	}
 	now := time.Now().UTC()
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), pollTimeout)
 	defer cancel()
+
+	// The fetches run together. Each account has its own credential file and
+	// its own provider, and Fetch only reads that file and the network, so
+	// nothing here shares mutable state. The store writes stay in this
+	// goroutine: the files, the adopted account, and the "polled" event are
+	// ordered exactly as they were when polling was sequential.
+	type polled struct {
+		acc     model.Account
+		reading model.Reading
+	}
+	done := make([]polled, len(accounts))
+	sem := make(chan struct{}, pollParallel)
+	var wg sync.WaitGroup
+	for i, acc := range accounts {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// Taken inside the goroutine, not before it is started: the
+			// launcher must not block on a full window while it still holds
+			// the WaitGroup slot the running fetches release.
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			done[i] = polled{acc: acc, reading: quota.Fetch(ctx, acc, now)}
+		}()
+	}
+	wg.Wait()
+
 	var stored []error
-	for _, acc := range accounts {
-		reading := quota.Fetch(ctx, acc, now)
+	for _, p := range done {
 		// One account whose reading cannot be saved does not stop the rest.
 		// The failure is kept and returned after every account has been
 		// tried, so a full disk is not reported as a finished poll.
-		if err := a.StoreReading(acc, reading); err != nil {
-			stored = append(stored, fmt.Errorf("%s: %w", acc.Name, err))
+		if err := a.StoreReading(p.acc, p.reading); err != nil {
+			stored = append(stored, fmt.Errorf("%s: %w", p.acc.Name, err))
 		}
 		if ctx := a.runtimeCtx(); ctx != nil {
-			runtime.EventsEmit(ctx, "polled", acc.ID)
+			runtime.EventsEmit(ctx, "polled", p.acc.ID)
 		}
 	}
 	if err := errors.Join(stored...); err != nil {

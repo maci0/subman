@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -23,7 +22,7 @@ func foldIdentity(s string) string {
 	if strings.Count(s, "@") != 1 {
 		return s
 	}
-	return cases.Fold().String(s)
+	return folder.String(s)
 }
 
 // jwtClaims decodes the payload of a JWT without verifying it. Anything that

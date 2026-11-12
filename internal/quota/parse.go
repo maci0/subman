@@ -28,7 +28,12 @@ import (
 // fold matches plan text case-insensitively without a locale. strings.ToLower
 // follows the default Unicode case map, which leaves "İ" (U+0130) as itself,
 // so a plan spelled that way would miss the ASCII tier it names.
-func fold(s string) string { return cases.Fold().String(s) }
+//
+// The caser is built once. cases.Fold walks the whole Unicode case map to
+// build its tables, and fold runs once per tier of every poll.
+var folder = cases.Fold()
+
+func fold(s string) string { return folder.String(s) }
 
 const maxWindows = 12
 
@@ -436,14 +441,36 @@ func parseAntigravity(obj map[string]any, now time.Time) model.Reading {
 // whole word, so "pro" does not match inside "prolite". The highest rank
 // wins, and at the same rank the longer name wins, so "Pro Lite" does not
 // collapse into "Pro" when both are present, and "Ultra" beats "Max".
+// foldedTier is a tier with its id and label already case-folded, so
+// matchTier does not rebuild them for every plan string it sees.
+type foldedTier struct {
+	tier      model.Tier
+	id, label string
+}
+
+// foldedTiers folds each provider's tier list once. The lists are fixed.
+var foldedTiers = func() map[model.Provider][]foldedTier {
+	out := make(map[model.Provider][]foldedTier, len(model.Providers))
+	for _, p := range model.Providers {
+		tiers := model.Tiers(p)
+		folded := make([]foldedTier, len(tiers))
+		for i, t := range tiers {
+			folded[i] = foldedTier{tier: t, id: fold(t.ID), label: fold(t.Label)}
+		}
+		out[p] = folded
+	}
+	return out
+}()
+
 func matchTier(p model.Provider, plan string) string {
 	hay := fold(plan)
 	var best model.Tier
 	found := false
-	for _, t := range model.Tiers(p) {
-		if !mentions(hay, fold(t.ID)) && !mentions(hay, fold(t.Label)) {
+	for _, ft := range foldedTiers[p] {
+		if !mentions(hay, ft.id) && !mentions(hay, ft.label) {
 			continue
 		}
+		t := ft.tier
 		if !found || t.Rank > best.Rank || (t.Rank == best.Rank && len(t.Label) > len(best.Label)) {
 			best = t
 			found = true
@@ -455,6 +482,17 @@ func matchTier(p model.Provider, plan string) string {
 	return best.ID
 }
 
+// equalRunes reports whether a and b are the same runes. It allocates
+// nothing, which matters because mentions tries it at every position.
+func equalRunes(a, b []rune) bool {
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // mentions reports whether needle occurs in hay bounded by non-letters, so
 // one tier's id is not found inside a longer tier's id.
 func mentions(hay, needle string) bool {
@@ -463,7 +501,7 @@ func mentions(hay, needle string) bool {
 	}
 	h, n := []rune(hay), []rune(needle)
 	for i := 0; i+len(n) <= len(h); i++ {
-		if string(h[i:i+len(n)]) != needle {
+		if !equalRunes(h[i:i+len(n)], n) {
 			continue
 		}
 		before := i == 0 || !unicode.IsLetter(h[i-1])
