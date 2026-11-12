@@ -85,12 +85,12 @@ const WARN_MARGIN = 20;
 /** The CSS colour for a utilization against the account's spend threshold. */
 export function tone(util: number, threshold: number): string {
   if (util >= threshold) {
-    return "var(--destructive)";
+    return "var(--color-st-fail)";
   }
   if (util >= threshold - WARN_MARGIN) {
-    return "var(--warn-fill)";
+    return "var(--color-st-warn)";
   }
-  return "var(--primary)";
+  return "var(--color-accent)";
 }
 
 export function num(value: number | undefined): string {

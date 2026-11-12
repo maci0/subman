@@ -210,27 +210,27 @@ export function App() {
   const sandbox = overview?.sandboxOk ?? false;
   const errorLine = error ? <ErrorLine message={error} onDismiss={() => setError("")} /> : null;
 
-  // A window short for its text size (36em is under 640px at the default
-  // 16px) scrolls as one page, so the header and footer do not crowd out the content.
+  // main keeps at least 20rem, which grows with the text size. When the
+  // header and footer leave less, the whole window scrolls instead.
   return (
-    <div className="flex h-full flex-col [@media(max-height:36em)]:h-auto">
+    <div className="flex h-full flex-col overflow-y-auto">
       <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3">
         <div className="flex min-w-0 items-center gap-3">
-          <h1 className="flex shrink-0 items-center gap-2 text-xl font-bold tracking-tight [font-stretch:80%]"><img src="/logo.svg" alt="" className="size-6" />subman</h1>
-          <p className="truncate text-sm text-muted-foreground">{summarize(overview)}</p>
+          <h1 className="flex shrink-0 items-center gap-2 text-intro font-bold tracking-logo"><img src="/logo.svg" alt="" className="size-6" />subman</h1>
+          <p className="truncate text-data text-muted-foreground">{summarize(overview)}</p>
         </div>
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           {overview ? (
             <span
-              className={`mr-2 flex min-w-0 items-center gap-1.5 text-fine ${sandbox ? "text-muted-foreground" : "text-warn"}`}
+              className={`mr-2 flex min-w-0 items-center gap-1.5 text-micro ${sandbox ? "text-muted-foreground" : "text-st-warn"}`}
               title={sandbox ? "Every agent and plan-change command runs confined by Landlock" : overview.sandboxNote}
             >
-              {sandbox ? <ShieldCheck className="size-4 shrink-0 text-primary" /> : <ShieldAlert className="size-4 shrink-0" />}
+              {sandbox ? <ShieldCheck className="size-4 shrink-0 text-accent" /> : <ShieldAlert className="size-4 shrink-0" />}
               <span className="truncate">{sandbox ? "Sandbox on" : overview.sandboxNote || "Sandbox unavailable"}</span>
             </span>
           ) : null}
           <Button variant="outline" size="sm" title="Fetch usage for every account" disabled={!!busy || !overview} onClick={() => pollAll()}>
-            <RefreshCw className={busy === "poll" ? "motion-safe:animate-spin motion-reduce:text-primary" : ""} />
+            <RefreshCw className={busy === "poll" ? "motion-safe:animate-spin motion-reduce:text-accent" : ""} />
             {busy === "poll" ? "Polling" : "Poll all"}
           </Button>
           <Button variant="outline" size="sm" title="Review the plan changes that are due, then run them" disabled={!!busy || !overview} onClick={() => setConfirmLadder(true)}>
@@ -247,18 +247,18 @@ export function App() {
       {errorLine ? <div className="px-5 pb-3">{errorLine}</div> : null}
       {overview && overview.problems.length > 0 ? (
         <div className="px-5 pb-3">
-          <Alert className="border-warn/60">
-            <TriangleAlert className="text-warn" />
+          <Alert className="border-st-warn/60">
+            <TriangleAlert className="text-st-warn" />
             <AlertTitle>{overview.problems.length === 1 ? "One account could not be loaded" : `${overview.problems.length} accounts could not be loaded`}</AlertTitle>
             <AlertDescription>
-              <span>Each has a directory under <span className="font-mono text-xs">{overview.dataDir}/accounts</span> that subman cannot read. Nothing was deleted.</span>
-              <ul className="font-mono text-xs">{overview.problems.map((p) => <li key={p}>{p}</li>)}</ul>
+              <span>Each has a directory under <span className="font-mono text-micro">{overview.dataDir}/accounts</span> that subman cannot read. Nothing was deleted.</span>
+              <ul className="font-mono text-micro">{overview.problems.map((p) => <li key={p}>{p}</li>)}</ul>
             </AlertDescription>
           </Alert>
         </div>
       ) : null}
 
-      <main className="min-h-0 flex-1 overflow-auto border-t [@media(max-height:36em)]:overflow-visible px-6 py-5">
+      <main className="min-h-80 flex-1 overflow-auto border-t px-6 py-5">
         {selectedView ? (
           <Detail
             key={selectedView.account.id}
@@ -293,7 +293,7 @@ export function App() {
         ) : overview ? (
           <Empty onAdd={openAdd} />
         ) : error ? null : (
-          <p className="text-sm text-muted-foreground" role="status">Reading accounts</p>
+          <p className="text-data text-muted-foreground" role="status">Reading accounts</p>
         )}
       </main>
 
@@ -325,14 +325,14 @@ export function App() {
         />
       ) : null}
 
-      <footer className="flex flex-wrap items-center justify-between gap-x-4 border-t px-5 py-1.5 text-fine text-muted-foreground">
-        <span className="truncate font-mono text-xs">{overview?.dataDir || ""}</span>
+      <footer className="flex flex-wrap items-center justify-between gap-x-4 border-t px-5 py-1.5 text-micro text-muted-foreground">
+        <span className="truncate font-mono text-micro">{overview?.dataDir || ""}</span>
         <span className="flex flex-wrap items-center justify-end gap-1">
           <label className="mr-3 flex min-h-6 items-center gap-1.5 whitespace-nowrap">
             Poll automatically
             <span className="w-[8.75rem]">
             <NativeSelect
-              className="h-7 py-0 pr-8 pl-2 text-fine text-foreground"
+              className="h-7 py-0 pr-8 pl-2 text-micro text-foreground"
               value={autoPoll}
               disabled={!settings}
               onChange={(e) => saveSettings({ autoPollMinutes: Number(e.currentTarget.value) })}
@@ -370,7 +370,7 @@ export function App() {
                     {due.map((v) => (
                       <li key={v.account.id}>
                         <span className="font-semibold">{v.account.name}</span>: {v.next ? stepLabel(v.tiers, v.next) : ""}
-                        {v.next?.command ? <code className="mt-0.5 block font-mono text-xs break-all text-muted-foreground">{v.next.command}</code> : null}
+                        {v.next?.command ? <code className="mt-0.5 block font-mono text-micro break-all text-muted-foreground">{v.next.command}</code> : null}
                       </li>
                     ))}
                   </ul>
@@ -444,9 +444,9 @@ function ErrorLine({ message, onDismiss }: { message: string; onDismiss: () => v
 
 function Empty({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="mt-12 max-w-md">
-      <h2 className="text-3xl font-bold tracking-tight [font-stretch:80%]">Nothing to watch yet</h2>
-      <p className="mt-3 leading-relaxed text-muted-foreground">
+    <div className="mt-12 max-w-form">
+      <h2 className="text-title font-bold tracking-tight">Nothing to watch yet</h2>
+      <p className="mt-3 leading-prose text-muted-foreground">
         Add a Claude, Codex, Grok, or Antigravity login. subman copies the credential into its own directory and reads the usage the vendor CLI already reads.
       </p>
       <Button className="mt-6" onClick={onAdd}>

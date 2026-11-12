@@ -23,8 +23,8 @@ test("a date input value round-trips through the RFC 3339 form", () => {
 });
 
 test("tone follows the account threshold", () => {
-  expect(tone(95, 95)).toBe("var(--destructive)");
-  expect(tone(75, 95)).toBe("var(--warn-fill)");
-  expect(tone(74, 95)).toBe("var(--primary)");
-  expect(tone(60, 60)).toBe("var(--destructive)");
+  expect(tone(95, 95)).toBe("var(--color-st-fail)");
+  expect(tone(75, 95)).toBe("var(--color-st-warn)");
+  expect(tone(74, 95)).toBe("var(--color-accent)");
+  expect(tone(60, 60)).toBe("var(--color-st-fail)");
 });

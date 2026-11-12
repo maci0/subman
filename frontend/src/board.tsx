@@ -57,21 +57,21 @@ export function Board({
         const failures = views.filter((v) => v.reading !== undefined && !v.reading.ok).length;
         return (
           <details key={provider} className="min-w-0" open={!shut} onToggle={(e) => fold(provider, !e.currentTarget.open)}>
-            <summary className="mb-1 flex cursor-pointer list-none items-center gap-2 rounded-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+            <summary className="mb-1 flex cursor-pointer list-none items-center gap-2 rounded-chip outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
               <ChevronRight className={`size-4 text-muted-foreground transition-transform ${shut ? "" : "rotate-90"}`} />
               <AgentMark provider={provider} className="size-4" />
-              <h2 className="text-lg font-bold [font-stretch:80%]">{title(provider)}</h2>
-              <span className="text-fine text-muted-foreground">
+              <h2 className="text-intro font-bold">{title(provider)}</h2>
+              <span className="text-micro text-muted-foreground">
                 {views.length}
                 {shut && fullest !== null ? `, fullest meter ${pct(fullest)}` : ""}
               </span>
-              {shut && failures > 0 ? <span className="text-fine text-destructive">{failures} poll{failures === 1 ? "" : "s"} failed</span> : null}
+              {shut && failures > 0 ? <span className="text-micro text-destructive">{failures} poll{failures === 1 ? "" : "s"} failed</span> : null}
             </summary>
             {/* Columns are in rem, so enlarged text widens the table and it scrolls here instead of clipping its cells. */}
             <div className="relative overflow-x-auto">
-            <table className="w-full min-w-[56rem] table-fixed text-sm" aria-label={`${title(provider)} accounts`}>
+            <table className="w-full min-w-[56rem] table-fixed text-data" aria-label={`${title(provider)} accounts`}>
               <thead>
-                <tr className="text-left text-fine text-muted-foreground [&>th]:py-1.5 [&>th]:pr-5 [&>th]:font-normal">
+                <tr className="text-left text-micro text-muted-foreground [&>th]:py-1.5 [&>th]:pr-5 [&>th]:font-normal">
                   <th scope="col" className="w-[18%] pl-2">Account</th>
                   <th scope="col" className="w-[13%]">Tier</th>
                   {labels.map((label) => <th key={label} scope="col" className="truncate" title={label}>{label}</th>)}
@@ -131,12 +131,12 @@ function BoardRow({
     <tr className="cursor-pointer border-t hover:bg-secondary/50 [&>*]:py-2 [&>*]:pr-5 [&>*]:align-top" onClick={onSelect}>
       <th scope="row" className="pl-2 text-left font-normal">
         {/* The click bubbles to the row; the button is there for the keyboard. */}
-        <button id={rowId(view.account.id)} className="flex max-w-full items-center gap-1.5 rounded-sm py-0.5 font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+        <button id={rowId(view.account.id)} className="flex max-w-full items-center gap-1.5 rounded-chip py-0.5 font-semibold outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring">
           <AgentMark provider={view.account.provider} className="size-3.5" />
           <span className="truncate" title={view.account.name}>{view.account.name}</span>
         </button>
         <span
-          className={`block text-fine ${failed ? "line-clamp-2 break-words" : "truncate"} ${failed ? "text-destructive" : reading?.stale ? "text-warn" : "text-muted-foreground"}`}
+          className={`block text-micro ${failed ? "line-clamp-2 break-words" : "truncate"} ${failed ? "text-destructive" : reading?.stale ? "text-st-warn" : "text-muted-foreground"}`}
           title={failed ? reading.error : reading ? `polled ${when(reading.polledAt)}` : undefined}
         >
           {failed ? `poll failed${reading.stale ? ", old numbers" : ""}${reading.error ? `: ${reading.error}` : ""}` : reading ? reading.account || `polled ${relative(reading.polledAt)}` : "never polled"}
@@ -153,7 +153,7 @@ function BoardRow({
         return (
           <td key={label}>
             <span className="block pt-1.5"><Meter label={label} util={w?.util} threshold={threshold} stale={reading?.stale} /></span>
-            <span className="mt-1 flex justify-between gap-2 text-fine">
+            <span className="mt-1 flex justify-between gap-2 text-micro">
               <span className="font-semibold">{pct(w?.util)}</span>
               <span className="truncate text-muted-foreground" title={w?.resetsAt ? when(w.resetsAt) : undefined}>{relative(w?.resetsAt)}</span>
             </span>
@@ -169,13 +169,13 @@ function BoardRow({
           <Badge variant="secondary" className="max-w-full" title={PHASE_HELP[view.ladder.phase]}><span className="truncate">{phaseLabel(view.ladder.phase)}</span></Badge>
         )}
         {view.account.renewalAt ? (
-          <span className="mt-0.5 block truncate text-fine text-muted-foreground" title={renewalTitle(view.account)}>renews {view.account.renewalEstimated ? "about " : ""}{shortDay(view.account.renewalAt)}</span>
+          <span className="mt-0.5 block truncate text-micro text-muted-foreground" title={renewalTitle(view.account)}>renews {view.account.renewalEstimated ? "about " : ""}{shortDay(view.account.renewalAt)}</span>
         ) : null}
       </td>
       {/* The row opens the account; these two act in place. */}
       <td className="pr-1! text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
         <Button variant="ghost" size="icon-sm" aria-label={`Poll ${view.account.name}`} title="Poll" disabled={!!busy} onClick={onPoll}>
-          <RefreshCw className={polling ? "motion-safe:animate-spin motion-reduce:text-primary" : ""} />
+          <RefreshCw className={polling ? "motion-safe:animate-spin motion-reduce:text-accent" : ""} />
         </Button>
         <Button variant="ghost" size="icon-sm" aria-label={`Edit ${view.account.name}`} title="Edit" onClick={onEdit}>
           <Pencil />
@@ -193,7 +193,7 @@ function MiniLadder({ view }: { view: AccountView }) {
       {ranks.map((rank, i) => (
         <span
           key={rank}
-          className={`w-1.5 rounded-[1px] ${rank === currentRank ? "bg-primary" : rank === nextRank ? "border border-primary" : "bg-border"}`}
+          className={`w-1.5 rounded-hair ${rank === currentRank ? "bg-primary" : rank === nextRank ? "border border-primary" : "bg-border-strong"}`}
           style={{ height: MINI_STEP_BASE_PX + i * MINI_STEP_RISE_PX }}
         />
       ))}
@@ -212,9 +212,9 @@ function ResetsCell({ reading, warningMs }: { reading: Reading | undefined; warn
   return (
     <>
       <span className="font-semibold">{c.resetCount}</span>
-      {usable ? <span className="text-fine text-muted-foreground"> ({c.resetApplies} usable)</span> : null}
+      {usable ? <span className="text-micro text-muted-foreground"> ({c.resetApplies} usable)</span> : null}
       {soon.length > 0 ? (
-        <span className="mt-0.5 flex items-center gap-1 text-fine text-warn" title={soon.map((r) => `${r.title || r.type}: ${when(r.expiresAt)}`).join("\n")}>
+        <span className="mt-0.5 flex items-center gap-1 text-micro text-st-warn" title={soon.map((r) => `${r.title || r.type}: ${when(r.expiresAt)}`).join("\n")}>
           <TriangleAlert className="size-3.5 shrink-0" />
           <span className="truncate">{soon.length === 1 ? "expires" : `${soon.length} expire`} {relative(soon[0]?.expiresAt)}</span>
         </span>

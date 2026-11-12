@@ -69,17 +69,17 @@ export function NextSteps({ advice, onSelect }: { advice: Advice[]; onSelect?: (
   const now = Date.now();
   return (
     <section>
-      <h2 className="mb-1 text-lg font-bold [font-stretch:80%]">Next steps</h2>
-      <ol className="flex flex-col text-sm">
+      <h2 className="mb-1 text-intro font-bold">Next steps</h2>
+      <ol className="flex flex-col text-data">
         {advice.map((a) => {
           const due = new Date(a.at).getTime() <= now + MINUTE_MS;
           return (
             <li key={`${a.accountId}:${a.kind}:${a.at}:${a.text}`} className={`grid items-baseline gap-4 border-t py-1.5 ${onSelect ? "grid-cols-steps-account" : "grid-cols-steps"}`}>
-              <span className={due ? "font-semibold text-primary" : "text-muted-foreground"} title={when(a.at)}>{due ? "now" : relative(a.at)}</span>
+              <span className={due ? "font-semibold text-accent" : "text-muted-foreground"} title={when(a.at)}>{due ? "now" : relative(a.at)}</span>
               {onSelect ? (
-                <button className="truncate rounded-sm py-0.5 text-left font-semibold outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50" title={a.account} onClick={() => onSelect(a.accountId)}>{a.account}</button>
+                <button className="truncate rounded-chip py-0.5 text-left font-semibold outline-none hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring" title={a.account} onClick={() => onSelect(a.accountId)}>{a.account}</button>
               ) : null}
-              <span className={a.kind === "login" ? "text-destructive" : a.kind === "expiring" ? "text-warn" : ""}>{a.text}</span>
+              <span className={a.kind === "login" ? "text-destructive" : a.kind === "expiring" ? "text-st-warn" : ""}>{a.text}</span>
             </li>
           );
         })}

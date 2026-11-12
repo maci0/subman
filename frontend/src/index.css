@@ -1,81 +1,35 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "@fontsource-variable/bricolage-grotesque/standard.css";
+/* relumea's brand tokens, copied unchanged from ai.relumea.brand src/system/tokens.css.
+   They clear Tailwind's stock colours, type, radii, shadows, leading and easing. */
+@import "./system/tokens.css";
 
-/* Follows the system setting; the shadcn dark: variants read the same media query. */
-@custom-variant dark (@media (prefers-color-scheme: dark));
-
-:root {
-  color-scheme: light dark;
-  --radius: 0.5rem;
-  --background: oklch(0.975 0.008 200);
-  --foreground: oklch(0.24 0.035 215);
-  --card: oklch(0.955 0.012 205);
-  --card-foreground: var(--foreground);
-  --popover: var(--card);
-  --popover-foreground: var(--foreground);
-  --primary: oklch(0.5 0.09 195);
-  --primary-foreground: oklch(0.98 0.01 200);
-  --secondary: oklch(0.92 0.018 210);
-  --secondary-foreground: var(--foreground);
-  --muted: var(--secondary);
-  --muted-foreground: oklch(0.46 0.03 215);
-  --accent: var(--secondary);
-  --accent-foreground: var(--foreground);
-  --destructive: oklch(0.5 0.19 25);
-  --warn: oklch(0.52 0.13 60);
-  /* Meter and step fills; brighter than --warn, which has to read as text. */
-  --warn-fill: oklch(0.78 0.16 75);
-  --border: oklch(0.85 0.02 210);
-  --input: oklch(0.78 0.025 210);
-  --ring: var(--primary);
+@font-face {
+  font-family: "Archivo";
+  src: url("/fonts/archivo.woff2") format("woff2");
+  font-weight: 100 900;
+  font-stretch: normal;
+  font-style: normal;
+  font-display: swap;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.2 0.03 215);
-    --foreground: oklch(0.96 0.01 200);
-    --card: oklch(0.235 0.033 215);
-    --primary: oklch(0.86 0.1 190);
-    --primary-foreground: oklch(0.22 0.04 215);
-    --secondary: oklch(0.29 0.035 215);
-    --muted-foreground: oklch(0.77 0.03 210);
-    --destructive: oklch(0.72 0.18 22);
-    --warn: oklch(0.84 0.14 80);
-    --warn-fill: var(--warn);
-    --border: oklch(0.36 0.035 215);
-    --input: oklch(0.42 0.035 215);
-  }
+@font-face {
+  font-family: "Archivo Fallback";
+  src: local("Arial"), local("Helvetica Neue"), local("Liberation Sans"), local("DejaVu Sans");
+  size-adjust: 95.69%;
+  ascent-override: 91.75%;
+  descent-override: 21.95%;
+  line-gap-override: 0%;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-warn: var(--warn);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, "DejaVu Sans Mono", monospace;
-  /* Secondary text: times, captions, help. One step under the 0.9375rem body. */
-  --text-fine: 0.8125rem;
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrains-mono.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@theme {
   /* Row layouts: account view main and side column; usage meter (label, bar, percent, reset time);
      plan change (time, change); banked reset (name, expiry); next step (when, [account,] what). */
   --grid-template-columns-account: minmax(0, 3fr) minmax(0, 2fr);
@@ -88,7 +42,7 @@
 
 @layer base {
   * {
-    border-color: var(--border);
+    border-color: var(--color-border);
   }
 
   html,
@@ -99,15 +53,17 @@
   }
 
   body {
-    background: var(--background);
-    color: var(--foreground);
+    background: var(--color-bg);
+    color: var(--color-text);
     font-family: var(--font-sans);
-    font-size: 0.9375rem;
+    font-size: var(--text-data);
+    line-height: var(--leading-snug);
     font-variant-numeric: tabular-nums;
   }
 
   ::selection {
-    background: color-mix(in oklab, var(--primary) 35%, transparent);
+    background: var(--color-accent-soft);
+    color: var(--color-text);
   }
 
   ::-webkit-scrollbar {
@@ -116,8 +72,16 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: var(--border);
+    background: var(--color-border-strong);
     border-radius: 99px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      transition: none !important;
+    }
   }
 }
 
@@ -125,8 +89,8 @@
 @utility meter {
   position: relative;
   height: 10px;
-  border-radius: 3px;
-  background: var(--secondary);
+  border-radius: var(--radius-cell);
+  background: var(--color-surface-3);
 }
 
 /* A meter from a poll that has since failed: the bar fades, its text does not. */
@@ -136,12 +100,9 @@
 
 @utility meter-fill {
   height: 100%;
-  border-radius: 3px;
+  border-radius: var(--radius-cell);
   background: var(--tone);
-  transition: width 500ms ease-out;
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
-  }
+  transition: width var(--duration-meter) var(--ease-out);
 }
 
 /* The spend threshold, drawn across the track. */
@@ -151,31 +112,30 @@
   bottom: -3px;
   width: 2px;
   margin-left: -1px;
-  border-radius: 1px;
-  background: var(--foreground);
+  border-radius: var(--radius-hair);
+  background: var(--color-text);
 }
 
 /* A meter the payload did not carry. Hatched, so it cannot be read as 0%. */
 @utility absent {
-  border: 1px dashed var(--border);
-  background: repeating-linear-gradient(135deg, transparent 0 5px, var(--secondary) 5px 7px);
+  border: 1px dashed var(--color-border-strong);
+  background: repeating-linear-gradient(135deg, transparent 0 5px, var(--color-surface-3) 5px 7px);
 }
 
 @utility step {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 6px 6px 2px 2px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-chip) var(--radius-chip) var(--radius-hair) var(--radius-hair);
   &[data-state="below"] {
-    background: var(--secondary);
+    background: var(--color-surface-3);
   }
   &[data-state="on"] {
-    border-style: solid;
     border-color: var(--tone);
   }
   &[data-state="next"] {
-    border: 1px dashed var(--primary);
-    color: var(--primary);
+    border: 1px dashed var(--color-text-muted);
+    color: var(--color-text-muted);
   }
 }
 
@@ -185,14 +145,11 @@
   bottom: 0;
   border-top: 2px solid var(--tone);
   background: color-mix(in oklab, var(--tone) 30%, transparent);
-  transition: height 500ms ease-out;
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
-  }
+  transition: height var(--duration-meter) var(--ease-out);
 }
 
 @utility step-tick {
   position: absolute;
   inset-inline: 0;
-  border-top: 1px dashed color-mix(in oklab, var(--foreground) 60%, transparent);
+  border-top: 1px dashed color-mix(in oklab, var(--color-text) 60%, transparent);
 }

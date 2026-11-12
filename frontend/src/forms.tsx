@@ -64,13 +64,13 @@ export function SettingsSheet({
       }}
     >
       <SheetContent
-        className="gap-0 sm:max-w-md"
+        className="gap-0 sm:max-w-form"
         // Coming back from the browser, the first click lands outside the sheet. It must not end the sign-in.
         onInteractOutside={(e) => { if (login) e.preventDefault(); }}
       >
         <SheetHeader>
           <SheetTitle>Edit {view.account.name}</SheetTitle>
-          <SheetDescription className="break-all font-mono text-xs">{view.account.agentHome}</SheetDescription>
+          <SheetDescription className="break-all font-mono text-micro">{view.account.agentHome}</SheetDescription>
         </SheetHeader>
         <form
           className="flex min-h-0 flex-1 flex-col"
@@ -91,7 +91,7 @@ export function SettingsSheet({
           }}
         >
           <div className="flex flex-1 flex-col gap-4 overflow-auto px-4 pb-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Name"><Input required value={form.name} onInput={(e) => setForm({ ...form, name: e.currentTarget.value })} /></Field>
               <Field label="Tier">
                 <NativeSelect value={form.tierId} onChange={(e) => setForm({ ...form, tierId: e.currentTarget.value })}>
@@ -104,16 +104,16 @@ export function SettingsSheet({
               <Field label="Spend threshold, %"><Input inputMode="numeric" value={threshold} onInput={(e) => setThreshold(e.currentTarget.value)} /></Field>
               <Field label="Agent binary"><Input placeholder="the one on PATH" value={form.agentBin || ""} onInput={(e) => setForm({ ...form, agentBin: e.currentTarget.value })} /></Field>
             </div>
-            <p className="-mt-2 text-fine leading-relaxed text-muted-foreground">A good poll replaces the tier, and the dates where the provider states them, with the provider's own.</p>
+            <p className="-mt-2 text-micro leading-prose text-muted-foreground">A good poll replaces the tier, and the dates where the provider states them, with the provider's own.</p>
             <Field label="Plan-change command">
-              <Input className="font-mono text-fine" placeholder="/path/to/change {from} {to}" value={form.changeCommand || ""} onInput={(e) => setForm({ ...form, changeCommand: e.currentTarget.value })} />
+              <Input className="font-mono text-micro" placeholder="/path/to/change {from} {to}" value={form.changeCommand || ""} onInput={(e) => setForm({ ...form, changeCommand: e.currentTarget.value })} />
             </Field>
-            <p className="-mt-2 text-fine leading-relaxed text-muted-foreground">One executable, not a shell line. With none set, the ladder names the next step and does not take it.</p>
-            <Label className="justify-between rounded-md border px-3 py-2.5">
+            <p className="-mt-2 text-micro leading-prose text-muted-foreground">One executable, not a shell line. With none set, the ladder names the next step and does not take it.</p>
+            <Label className="justify-between rounded-control border px-3 py-2.5">
               Ladder
               <Switch checked={form.ladder} onCheckedChange={(v) => setForm({ ...form, ladder: v })} />
             </Label>
-            <Label className="justify-between rounded-md border px-3 py-2.5">
+            <Label className="justify-between rounded-control border px-3 py-2.5">
               Use a banked reset when the highest tier is spent
               <Switch checked={form.autoReset} onCheckedChange={(v) => setForm({ ...form, autoReset: v })} />
             </Label>
@@ -125,7 +125,7 @@ export function SettingsSheet({
                 <>
                   {canSignIn ? (
                     <>
-                      <p className="text-fine leading-relaxed text-muted-foreground">
+                      <p className="text-micro leading-prose text-muted-foreground">
                         For a login that Renew can no longer refresh. A new sign-in replaces the stored login at once and does not wait for Save.
                       </p>
                       <Button type="button" variant="outline" size="sm" className="self-start" disabled={!!busy} onClick={onSignIn}>Sign in again</Button>
@@ -143,7 +143,7 @@ export function SettingsSheet({
           {errorLine || formError ? (
             <div className="flex flex-col gap-2 border-t px-4 py-3">
               {errorLine}
-              {formError ? <p className="text-fine text-destructive" role="alert">{formError}</p> : null}
+              {formError ? <p className="text-micro text-destructive" role="alert">{formError}</p> : null}
             </div>
           ) : null}
           <SheetFooter className="flex-row justify-between border-t">
@@ -155,7 +155,7 @@ export function SettingsSheet({
                 <AlertDialogHeader>
                   <AlertDialogTitle>Remove {view.account.name}?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This deletes <span className="break-all font-mono text-xs">{view.account.home}</span>, including the login subman stores for it. The vendor CLI's own login is not touched.
+                    This deletes <span className="break-all font-mono text-micro">{view.account.home}</span>, including the login subman stores for it. The vendor CLI's own login is not touched.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -191,12 +191,12 @@ function SignInWaiting({ login, provider, onCancel }: { login: LoginStart; provi
       <p>Finish signing in to {provider} in your browser. This window picks it up when you are done.</p>
       {login.userCode ? (
         <p>
-          The page should show this code: <span className="font-mono text-base font-semibold tracking-wider">{login.userCode}</span>
+          The page should show this code: <span className="font-mono text-body font-semibold tracking-label">{login.userCode}</span>
         </p>
       ) : null}
-      <p className="text-fine leading-relaxed text-muted-foreground">
+      <p className="text-micro leading-prose text-muted-foreground">
         No page opened? Open this address yourself:
-        <span className="mt-1 block max-h-16 overflow-auto rounded-md border bg-card px-2 py-1 font-mono text-xs break-all select-all">{login.url}</span>
+        <span className="mt-1 block max-h-16 overflow-auto rounded-control border bg-card px-2 py-1 font-mono text-micro break-all select-all">{login.url}</span>
       </p>
       <div className="flex gap-2">
         <Button type="button" variant="outline" size="sm" onClick={() => openExternal(login.url)}>Open the page again</Button>
@@ -242,7 +242,7 @@ export function AddDialog({
         ) : (
           <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (fromFile) onImport(); else onSignIn(); }}>
             {errorLine}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Name, optional"><Input placeholder="the login's email" value={draft.name} onInput={(e) => onChange({ ...draft, name: e.currentTarget.value })} /></Field>
               <Field label="Provider">
                 <NativeSelect
@@ -264,13 +264,13 @@ export function AddDialog({
                 </NativeSelect>
               </Field>
             </div>
-            <p className="-mt-1 text-fine leading-relaxed text-muted-foreground">
+            <p className="-mt-1 text-micro leading-prose text-muted-foreground">
               The tier is read from the provider on the first poll, and so are the activation and renewal dates where the provider states them. Anything it does not state can be set in Edit.
             </p>
             {fromFile ? (
               <>
                 <CredentialInput label="Credential file" required value={draft.credentialPath} onChange={(credentialPath) => onChange({ ...draft, credentialPath })} />
-                <p className="-mt-2 text-fine leading-relaxed text-muted-foreground">
+                <p className="-mt-2 text-micro leading-prose text-muted-foreground">
                   {current?.login
                     ? `The file the ${current.title} CLI wrote when you signed in there.`
                     : `${current?.title ?? "This provider"} has no sign-in here, so point at the file its CLI wrote when you signed in there.`}
@@ -307,7 +307,7 @@ function CredentialInput({ label, value, required, onChange }: { label: string; 
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id} className="font-normal text-muted-foreground">{label}</Label>
       <div className="flex gap-2">
-        <Input id={id} className="font-mono text-fine" required={required} value={value} onInput={(e) => onChange(e.currentTarget.value)} />
+        <Input id={id} className="font-mono text-micro" required={required} value={value} onInput={(e) => onChange(e.currentTarget.value)} />
         <Button
           type="button"
           variant="outline"
@@ -326,7 +326,7 @@ function CredentialInput({ label, value, required, onChange }: { label: string; 
           Browse
         </Button>
       </div>
-      {failure ? <p className="text-fine text-destructive" role="alert">The file dialog did not open: {failure}. Type the path instead.</p> : null}
+      {failure ? <p className="text-micro text-destructive" role="alert">The file dialog did not open: {failure}. Type the path instead.</p> : null}
     </div>
   );
 }

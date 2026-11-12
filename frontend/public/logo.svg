@@ -1,7 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <title>subman</title>
-  <rect width="32" height="32" rx="7" fill="#04191e"/>
-  <rect x="5" y="18" width="6" height="8" rx="1.25" fill="#2f7377"/>
-  <rect x="13" y="12" width="6" height="14" rx="1.25" fill="#7ee8dd"/>
-  <rect x="21.75" y="6.75" width="4.5" height="18.5" rx="1" fill="none" stroke="#7ee8dd" stroke-width="1.5"/>
+  <style>
+    .tile { fill: #0a0a0b; }
+    .low { fill: #767681; }
+    .mid { fill: #ededef; }
+    .top { stroke: #3fbf7a; }
+    @media (prefers-color-scheme: dark) {
+      .tile { fill: #ededef; }
+      .low { fill: #82828a; }
+      .mid { fill: #0a0a0b; }
+      .top { stroke: #0f7a42; }
+    }
+  </style>
+  <rect class="tile" width="32" height="32" rx="7"/>
+  <rect class="low" x="5" y="18" width="6" height="8" rx="1.25"/>
+  <rect class="mid" x="13" y="12" width="6" height="14" rx="1.25"/>
+  <rect class="top" x="21.75" y="6.75" width="4.5" height="18.5" rx="1" fill="none" stroke-width="1.5"/>
 </svg>

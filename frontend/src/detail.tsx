@@ -58,7 +58,7 @@ export function Detail({
       </div>
       <div>
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-          <h2 ref={heading} tabIndex={-1} className="flex min-w-0 items-center gap-2.5 text-[2rem] leading-none font-bold tracking-tight outline-none [font-stretch:78%]">
+          <h2 ref={heading} tabIndex={-1} className="flex min-w-0 items-center gap-2.5 text-[2rem] font-bold tracking-tight outline-none [font-stretch:78%]">
             <AgentMark provider={view.account.provider} className="size-7" />
             <span className="truncate">{view.account.name}</span>
           </h2>
@@ -80,23 +80,23 @@ export function Detail({
           ) : null}
         </p>
         {view.account.renewalAt && view.account.renewalEstimated ? (
-          <p className="mt-1.5 text-fine text-muted-foreground">The renewal date is an estimate: the provider states when the subscription began, not when it renews. Set the real date in Edit.</p>
+          <p className="mt-1.5 text-micro text-muted-foreground">The renewal date is an estimate: the provider states when the subscription began, not when it renews. Set the real date in Edit.</p>
         ) : null}
       </div>
 
-      <div className={`mt-2 grid gap-x-14 gap-y-8 ${aside ? "min-[1100px]:grid-cols-account" : "max-w-3xl"}`}>
+      <div className={`mt-2 grid gap-x-14 gap-y-8 ${aside ? "min-[1100px]:grid-cols-account" : "max-w-[48rem]"}`}>
         <div className="flex min-w-0 flex-col gap-8">
           <Ladder view={view} threshold={threshold} onEdit={onEdit} />
           <NextSteps advice={advice} />
 
           <section>
             <div className="mb-4 flex items-baseline justify-between">
-              <h3 className="text-lg font-semibold">Usage</h3>
-              <span className={`text-fine ${reading && !reading.ok ? "text-destructive" : "text-muted-foreground"}`} title={reading ? when(reading.polledAt) : undefined}>
+              <h3 className="text-intro font-semibold">Usage</h3>
+              <span className={`text-micro ${reading && !reading.ok ? "text-destructive" : "text-muted-foreground"}`} title={reading ? when(reading.polledAt) : undefined}>
                 {reading ? `${reading.ok ? "polled" : "poll failed"} ${relative(reading.polledAt)}` : "never polled"}
               </span>
             </div>
-            {!reading ? <p className="text-sm text-muted-foreground">No reading yet. Poll fetches one.</p> : null}
+            {!reading ? <p className="text-data text-muted-foreground">No reading yet. Poll fetches one.</p> : null}
             {reading && !reading.ok ? (
               <Alert variant="destructive" className="mb-5 border-destructive/50">
                 <TriangleAlert />
@@ -112,19 +112,21 @@ export function Detail({
             ) : null}
             {reading && reading.windows.length > 0 ? (
               <>
-                <ul className="flex flex-col gap-3.5">
-                  {reading.windows.map((w) => (
-                    <li key={w.label} className="grid grid-cols-meters items-center gap-4">
-                      <span className="truncate" title={w.label}>{w.label}</span>
-                      <Meter label={w.label} util={w.util} threshold={threshold} stale={reading.stale} />
-                      <span className="text-right font-semibold">{pct(w.util)}</span>
-                      <span className="text-fine text-muted-foreground" title={w.resetsAt ? when(w.resetsAt) : undefined}>
-                        {w.resetsAt ? `${w.util === null ? "back" : "resets"} ${relative(w.resetsAt)}` : w.util === null ? "not reported" : ""}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-4 text-fine text-muted-foreground">
+                <div className="overflow-x-auto">
+                  <ul className="flex min-w-[36rem] flex-col gap-3.5">
+                    {reading.windows.map((w) => (
+                      <li key={w.label} className="grid grid-cols-meters items-center gap-4">
+                        <span className="truncate" title={w.label}>{w.label}</span>
+                        <Meter label={w.label} util={w.util} threshold={threshold} stale={reading.stale} />
+                        <span className="text-right font-semibold">{pct(w.util)}</span>
+                        <span className="text-micro text-muted-foreground" title={w.resetsAt ? when(w.resetsAt) : undefined}>
+                          {w.resetsAt ? `${w.util === null ? "back" : "resets"} ${relative(w.resetsAt)}` : w.util === null ? "not reported" : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <p className="mt-4 text-micro text-muted-foreground">
                   The tick on each bar is the {threshold}% spend threshold.
                   {reading.stale ? " These numbers are from the last poll that worked." : ""}
                 </p>
@@ -139,13 +141,13 @@ export function Detail({
           <div className="flex min-w-0 flex-col gap-8">
             {tested ? (
               <section>
-                <h3 className="flex items-center gap-2 text-lg font-semibold">
-                  {tested.ok ? <CircleCheck className="size-5 text-primary" /> : <CircleX className="size-5 text-destructive" />}
+                <h3 className="flex items-center gap-2 text-intro font-semibold">
+                  {tested.ok ? <CircleCheck className="size-5 text-accent" /> : <CircleX className="size-5 text-destructive" />}
                   Agent test {tested.ok ? "passed" : "failed"}
                 </h3>
-                {tested.sandboxed ? null : <p className="mt-1 text-sm text-warn">The sandbox did not apply, so the agent did not run.</p>}
-                {tested.note ? <p className="mt-1 text-sm text-muted-foreground">{tested.note}</p> : null}
-                {tested.output ? <pre className="mt-3 max-h-48 overflow-auto rounded-md border bg-card p-3 font-mono text-xs text-muted-foreground">{tested.output}</pre> : null}
+                {tested.sandboxed ? null : <p className="mt-1 text-data text-st-warn">The sandbox did not apply, so the agent did not run.</p>}
+                {tested.note ? <p className="mt-1 text-data text-muted-foreground">{tested.note}</p> : null}
+                {tested.output ? <pre className="mt-3 max-h-48 overflow-auto rounded-control border bg-card p-3 font-mono text-micro text-muted-foreground">{tested.output}</pre> : null}
               </section>
             ) : null}
             {history.length > 0 ? <History entries={history} tiers={view.tiers} /> : null}
@@ -166,25 +168,25 @@ function Ladder({ view, threshold, onEdit }: { view: AccountView; threshold: num
   // Go sends a ladder that never stepped as the year-1 zero time.
   const stepped = view.ladder.lastStep !== undefined && new Date(view.ladder.lastStep).getFullYear() > 1;
   return (
-    <section className="flex items-end gap-8">
-      <ol className="flex min-w-0 items-end gap-1.5" aria-label="Tier ladder">
+    <section className="flex flex-wrap items-end gap-8">
+      <ol className="flex min-w-0 max-w-full items-end gap-1.5 overflow-x-auto" aria-label="Tier ladder">
         {ranks.map((rank, i) => {
           const here = view.tiers.filter((t) => t.rank === rank);
           const on = rank === currentRank;
           const next = rank === nextRank;
           const state = on ? "on" : next ? "next" : currentRank !== undefined && rank < currentRank ? "below" : "above";
           return (
-            <li key={rank} className="flex w-[120px] min-w-14 shrink flex-col gap-2" aria-current={on ? "step" : undefined}>
+            <li key={rank} className="flex w-[120px] shrink-0 flex-col gap-2" aria-current={on ? "step" : undefined}>
               <div
                 className={`step ${on && util === null ? "absent" : ""}`}
                 data-state={state}
-                style={{ height: STEP_BASE_PX + i * STEP_RISE_PX, "--tone": util === null ? "var(--primary)" : tone(util, threshold) }}
+                style={{ height: STEP_BASE_PX + i * STEP_RISE_PX, "--tone": util === null ? "var(--color-text-muted)" : tone(util, threshold) }}
               >
                 {on && util !== null ? (
                   <>
                     <div className="step-fill" style={{ height: `${Math.max(0, Math.min(100, util))}%` }} />
                     <div className="step-tick" style={{ bottom: `${threshold}%` }} />
-                    <span className="absolute inset-0 flex items-center justify-center text-2xl font-bold">{pct(util)}</span>
+                    <span className="absolute inset-0 flex items-center justify-center text-figure font-bold">{pct(util)}</span>
                   </>
                 ) : null}
                 {next ? (
@@ -194,14 +196,14 @@ function Ladder({ view, threshold, onEdit }: { view: AccountView; threshold: num
                   </span>
                 ) : null}
               </div>
-              <span className={`truncate text-center text-fine ${on ? "font-semibold" : "text-muted-foreground"}`}>
+              <span className={`truncate text-center text-micro ${on ? "font-semibold" : "text-muted-foreground"}`}>
                 {here.map((t) => t.label).join(" / ")}
               </span>
             </li>
           );
         })}
       </ol>
-      <div className="min-w-0 pb-7 text-sm leading-relaxed">
+      <div className="min-w-0 pb-7 text-data leading-prose">
         <p className="text-muted-foreground">{view.ladder.note || "The ladder has not decided anything yet."}</p>
         {view.next ? (
           <p className="mt-1">
@@ -210,7 +212,7 @@ function Ladder({ view, threshold, onEdit }: { view: AccountView; threshold: num
         ) : null}
         {view.ladder.lastError ? <p className="mt-1 break-words text-destructive">{view.ladder.lastError}</p> : null}
         {stepped || view.ladder.cycles > 0 ? (
-          <p className="mt-1 text-fine text-muted-foreground">
+          <p className="mt-1 text-micro text-muted-foreground">
             {stepped ? `Last plan change ${when(view.ladder.lastStep)}. ` : ""}
             {view.ladder.cycles > 0 ? `Returned to the lowest tier ${view.ladder.cycles} time${view.ladder.cycles === 1 ? "" : "s"}.` : ""}
           </p>
@@ -228,8 +230,8 @@ function Ladder({ view, threshold, onEdit }: { view: AccountView; threshold: num
 function History({ entries, tiers }: { entries: HistoryEntry[]; tiers: Tier[] }) {
   return (
     <section>
-      <h3 className="mb-2 text-lg font-semibold">Plan changes</h3>
-      <ul className="flex flex-col text-sm">
+      <h3 className="mb-2 text-intro font-semibold">Plan changes</h3>
+      <ul className="flex flex-col text-data">
         {entries.map((e) => (
           <li key={e.at} className="grid grid-cols-history gap-4 border-t py-1.5">
             <span className="text-muted-foreground">{when(e.at)}</span>
@@ -252,27 +254,27 @@ function ResetList({ reading, warningMs }: { reading: Reading; warningMs: number
   return (
     <div className="mt-6">
       <h4 className="mb-1 font-semibold">Banked resets</h4>
-      <ul className="flex flex-col text-sm">
+      <ul className="flex flex-col text-data">
         {resets.map((r) => (
           <li key={r.id} className="grid grid-cols-resets items-baseline gap-4 border-t py-1.5">
             <span>
               {r.title || r.type}
-              <span className="text-fine text-muted-foreground">
+              <span className="text-micro text-muted-foreground">
                 {r.title && r.type ? ` (${r.type})` : ""}{r.left > 1 ? `, ${r.left} left` : ""}{r.applies ? "" : ", for a limit that is not the fullest"}
               </span>
             </span>
             {r.expiresAt ? (
-              <span className={`flex items-center gap-1 text-fine ${soon.has(r.id) ? "text-warn" : "text-muted-foreground"}`} title={when(r.expiresAt)}>
+              <span className={`flex items-center gap-1 text-micro ${soon.has(r.id) ? "text-st-warn" : "text-muted-foreground"}`} title={when(r.expiresAt)}>
                 {soon.has(r.id) ? <TriangleAlert className="size-3.5" /> : null}
                 expires {relative(r.expiresAt)}
               </span>
             ) : (
-              <span className="text-fine text-muted-foreground">does not expire</span>
+              <span className="text-micro text-muted-foreground">does not expire</span>
             )}
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-fine text-muted-foreground">A reset is only used on the highest tier. Below it, stepping up a tier resets the window and keeps the reset.</p>
+      <p className="mt-2 text-micro text-muted-foreground">A reset is only used on the highest tier. Below it, stepping up a tier resets the window and keeps the reset.</p>
     </div>
   );
 }
@@ -292,10 +294,10 @@ function Credits({ reading }: { reading: Reading }) {
   if (c.unlimited) rows.push(["Credits", "unlimited"]);
   if (rows.length === 0) return null;
   return (
-    <dl className="mt-6 flex w-fit divide-x rounded-md border">
+    <dl className="mt-6 flex w-fit divide-x rounded-control border">
       {rows.map(([label, value]) => (
         <div key={label} className="px-4 py-2.5">
-          <dt className="text-fine text-muted-foreground">{label}</dt>
+          <dt className="text-micro text-muted-foreground">{label}</dt>
           <dd className="font-semibold">{value}</dd>
         </div>
       ))}

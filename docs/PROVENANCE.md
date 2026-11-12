@@ -399,3 +399,40 @@ Changed:
 Verified in Chromium against the built frontend and sample data at 960x640, root sizes 100%, 150%, and 200%, board and account view: no page-level horizontal scroll, header, footer, and main do not overflow, no overlapping header items, no truncated text without a title, usage bars 478px at 100% and 256px at 200%. At 960x500 `main` stops scrolling and the document scrolls. `bun test`, `bun run build`, `oxlint`, `vnu` on `frontend/dist/index.html` and `docs/img/art.html` (no errors, no warnings), `go test -race ./...`.
 
 Not verified: the real WebKitGTK window and a screen reader. The social preview is not set on GitHub; that is a repository setting with no API.
+
+## 2026-11-12 dialog and detail reflow
+
+The operator asked to fix the modal overflow, detail overflow, and reduced motion findings from the Impeccable audit.
+
+- `frontend/src/components/ui/dialog.tsx` and `alert-dialog.tsx` cap content at the viewport height and scroll it. `sheet.tsx` uses the full window width below `sm`; `forms.tsx` stacks fields there.
+- `frontend/src/detail.tsx` contains usage-row scrolling within that section and lets the tier ladder wrap beside its explanation.
+- All three modal components run entry and exit animations only when reduced motion is off.
+
+Verified with the built frontend and `.scratch/ui/mock.js` in headless Chromium at 960x640 with 200% root text: no page or main horizontal overflow and the usage list scrolls inside its section. At 960x320, the Add and ladder confirmation dialogs fit and scroll. With reduced motion, the sheet and both dialogs report `animation-name: none`. `bun test`, `bun run build`, `go test ./...`, `vnu --format text frontend/dist/index.html`, and `git diff --check` passed.
+
+Not verified: the WebKitGTK window and a screen reader.
+
+## 2026-11-12 full test pass
+
+The operator asked to test all changes from the dialog and detail reflow. Testing found that the desktop `sm:max-w-lg` rule let the Add and confirmation dialogs touch the window edges at 200% text. `frontend/src/components/ui/dialog.tsx` and `alert-dialog.tsx` now cap desktop width at the smaller of 32rem and the viewport minus 2rem.
+
+Verified: `bun test` (4 pass), `bun run build`, `go test ./...`, `go test -race ./...`, `go vet ./...`, `oxlint frontend/src`, `vnu --format text frontend/dist/index.html`, and `git diff --check`. In Chromium with `.scratch/ui/mock.js`, light and dark board and account views had no page or main horizontal overflow at 960x640 with 100%, 150%, and 200% root text. At 200%, usage scrolled inside its section. At 960x320 with 200% text, Add and confirmation dialogs fit and scrolled; the Edit sheet fit. Their animations were `none` under reduced motion and `enter` otherwise.
+
+A `production,webkit2_41,devtools` build ran against an isolated empty data directory. In the real WebKitGTK window at 960x640 and 200% text, the Add dialog's rectangle stayed 32px from each side, fit vertically, and scrolled. After scrolling 53px to the bottom, the submit button was fully visible. The configured window minimum is 960x640 (`main.go:67-68`); a 400px Chromium stress run showed page overflow outside that supported width.
+
+Not verified: a screen reader, and WebKitGTK with populated account data.
+
+## 2026-11-12 relumea visual system, main area height, dialog width
+
+The operator asked to fix the two findings of the third Impeccable audit (18/20) and to use the relumea brand guide. Asked how far, they chose the visual system only (subman keeps its name and mark) and a copy of the brand files with no source record.
+
+- `frontend/src/system/tokens.css` is an unchanged copy of `ai.relumea.brand` `src/system/tokens.css` at `c47cfe5`; `frontend/public/fonts/` holds that commit's `archivo.woff2`, `jetbrains-mono.woff2`, and their OFL licenses. `index.css` imports the tokens, declares the fonts as relumea-site `src/styles.css` does, and drops subman's own colour tokens and `@fontsource-variable/bricolage-grotesque`.
+- Every stock Tailwind class the tokens clear was remapped (`.scratch/rebrand.ts`, not committed): `text-sm` to `text-data`, `text-xs` and `text-fine` to `text-micro`, `rounded-md` to `rounded-control`, `shadow-lg` to `shadow-lift`, hover `bg-accent` to `bg-surface-2`, `dark:` variants removed, focus rings to a 2px accent outline with a 2px offset (BRAND.md section 10). Container widths: `max-w-md` to `max-w-form`, the account view's `max-w-3xl` to `max-w-[48rem]`. A scan of every class in `frontend/src` against the built CSS finds none that generates nothing.
+- Dialogs and sheets sit on `surface` with `shadow-lift` and no border (one elevation per element). Meter and step tones (`format.ts`) are `accent` below the warning margin, `st-warn` near the threshold, `st-fail` at it. `logo.svg` keeps its shape in brand ink, grey, and accent, inverted under a dark scheme. `main.go` paints the frame in `--color-bg` (`#fafafa`, `#0b0b0c`); `theme.test.ts` now reads `tokens.css`.
+- Audit P2: at 200% root text in a 960x640 window, `main` was 191px tall, because the short-window rule used a `36em` media query, which does not follow the root text size. `main` now has `min-h-80` (20rem) and the frame scrolls when the header and footer leave less. Measured: 539px at 100%, 640px at 200%, no horizontal page scroll.
+- Audit P3: the Add dialog scrolled sideways by 43px (17px after the font change) at 200% text, because its implicit grid column was sized before the vertical scrollbar took its width. `dialog.tsx` and `alert-dialog.tsx` set `grid-cols-[minmax(0,1fr)]`; tested live first, scroll width then equals client width (886px).
+- `docs/img/art.html` redraws the banner, ladder cycle, and social preview on the brand's light ground in Archivo, with the window's step fills, no dot grid and no gradient (BRAND.md sections 8 and 11). All five images in `docs/img/` were re-rendered.
+
+Verified in Chromium with `.scratch/ui/mock.js`, 960x640, light and dark: every text node clears AA contrast on the board, account view, Edit sheet, and Add dialog; no control is under 24px (the two 32x18 inputs are Radix's aria-hidden form inputs); every focus stop shows a 2px `rgb(15, 122, 66)` outline at a 2px offset; Archivo and JetBrains Mono load. `bun test`, `bun run build`, `oxlint`, `vnu --format text` on `frontend/dist/index.html` and `docs/img/art.html`, the Impeccable detector on `frontend/src` (no findings), `go vet ./...`, `go test -race ./...`, `git diff --check`.
+
+Not verified: the WebKitGTK window and a screen reader. Lucide icons stay; relumea's icon set was not adopted.

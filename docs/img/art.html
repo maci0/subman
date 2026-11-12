@@ -4,32 +4,34 @@
 <meta charset="utf-8">
 <title>subman graphics</title>
 <!-- Source of docs/img/banner.png, ladder-cycle.png, and social-preview.png. Open it in a browser
-     from a checkout with frontend/node_modules installed (it loads the bundled font from there) and
-     screenshot #banner, #cycle, and #social at a device scale of 2. -->
+     from a checkout (it loads Archivo from frontend/public/fonts) and screenshot #banner, #cycle,
+     and #social at a device scale of 2. Colours are relumea's light tokens
+     (frontend/src/system/tokens.css). -->
 <style>
   @font-face {
-    font-family: "Bricolage";
-    src: url("../../frontend/node_modules/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-standard-normal.woff2") format("woff2");
-    font-weight: 200 800;
-    font-stretch: 75% 100%;
+    font-family: "Archivo";
+    src: url("../../frontend/public/fonts/archivo.woff2") format("woff2");
+    font-weight: 100 900;
   }
   :root {
-    --ink: #04191e;
-    --ink-2: #0a252b;
-    --line: #17383f;
-    --teal-deep: #2f7377;
-    --teal: #7ee8dd;
-    --mist: #b7d3d3;
-    --warn: #f2bf57;
-    --hot: #ff7a6b;
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --surface-3: #eef0f3;
+    --border: #e7e8ec;
+    --border-strong: #d5d8de;
+    --text: #0a0a0b;
+    --text-muted: #55585f;
+    --accent: #0f7a42;
+    --warn: #8a5a00;
+    --fail: #a32318;
   }
-  body { margin: 0; background: #222; font-family: "Bricolage", sans-serif; color: var(--teal); }
-  body > div { position: relative; overflow: hidden; background: var(--ink); margin: 0 0 40px; }
+  body { margin: 0; background: #ddd; font-family: "Archivo", sans-serif; color: var(--text); }
+  body > div { position: relative; overflow: hidden; background: var(--bg); margin: 0 0 40px; }
   #banner { width: 1280px; height: 420px; }
   #cycle { width: 1280px; height: 600px; }
   #social { width: 1280px; height: 640px; }
   svg { display: block; }
-  text { font-family: "Bricolage", sans-serif; }
+  text { font-family: "Archivo", sans-serif; }
 </style>
 </head>
 <body>
@@ -48,89 +50,83 @@ const svgIn = (id, w, h) => {
   const s = el("svg", { width: w, height: h, viewBox: `0 0 ${w} ${h}` });
   document.getElementById(id).append(s);
   const defs = el("defs");
-  // Hatch for a meter the provider did not report, and for a parked tier.
+  // Hatch for a parked tier, as the window hatches a meter it has no number for.
   const hatch = el("pattern", { id: `hatch-${id}`, width: 8, height: 8, patternUnits: "userSpaceOnUse", patternTransform: "rotate(135)" });
-  hatch.append(el("rect", { width: 2, height: 8, fill: "#17383f" }));
+  hatch.append(el("rect", { width: 2, height: 8, fill: "var(--surface-3)" }));
   defs.append(hatch);
-  // A faint dot grid behind everything.
-  const dots = el("pattern", { id: `dots-${id}`, width: 24, height: 24, patternUnits: "userSpaceOnUse" });
-  dots.append(el("circle", { cx: 1.5, cy: 1.5, r: 1.2, fill: "#0f2f35" }));
-  defs.append(dots);
   s.append(defs);
-  s.append(el("rect", { width: w, height: h, fill: `url(#dots-${id})` }));
   return s;
 };
 
-/** The mark from frontend/public/logo.svg, scaled. */
+/** The mark from frontend/public/logo.svg (light scheme), scaled. */
 function mark(s, x, y, size) {
   const g = el("g", { transform: `translate(${x} ${y}) scale(${size / 32})` });
-  g.append(el("rect", { width: 32, height: 32, rx: 7, fill: "#0b2a30", stroke: "#1d4a51", "stroke-width": 0.6 }));
-  g.append(el("rect", { x: 5, y: 18, width: 6, height: 8, rx: 1.25, fill: "#2f7377" }));
-  g.append(el("rect", { x: 13, y: 12, width: 6, height: 14, rx: 1.25, fill: "#7ee8dd" }));
-  g.append(el("rect", { x: 21.75, y: 6.75, width: 4.5, height: 18.5, rx: 1, fill: "none", stroke: "#7ee8dd", "stroke-width": 1.5 }));
+  g.append(el("rect", { width: 32, height: 32, rx: 7, fill: "#0a0a0b" }));
+  g.append(el("rect", { x: 5, y: 18, width: 6, height: 8, rx: 1.25, fill: "#767681" }));
+  g.append(el("rect", { x: 13, y: 12, width: 6, height: 14, rx: 1.25, fill: "#ededef" }));
+  g.append(el("rect", { x: 21.75, y: 6.75, width: 4.5, height: 18.5, rx: 1, fill: "none", stroke: "#3fbf7a", "stroke-width": 1.5 }));
   s.append(g);
 }
 
-/** One tier step: an outline, a fill to `util` percent, and the threshold tick. */
+/** The window's tone for a utilization against the 95% threshold (frontend/src/format.ts). */
+const tone = (util) => (util >= 95 ? "var(--fail)" : util >= 75 ? "var(--warn)" : "var(--accent)");
+
+/** One tier step as the window draws it: an outline, a 30% fill to `util`, a 2px cap, the threshold tick. */
 function step(s, x, y, w, h, util, opts = {}) {
-  const tone = util >= 95 ? "var(--hot)" : util >= 75 ? "var(--warn)" : "var(--teal)";
   const g = el("g");
-  g.append(el("rect", { x, y, width: w, height: h, rx: 8, fill: opts.parked ? `url(#hatch-${opts.id})` : "#08222a", stroke: opts.next ? "var(--teal)" : "#1d4a51", "stroke-width": 1.5, "stroke-dasharray": opts.next ? "6 5" : "none" }));
+  g.append(el("rect", { x, y, width: w, height: h, rx: 5, fill: "var(--surface)", stroke: opts.on ? tone(util) : "var(--border-strong)", "stroke-width": 1.5 }));
   if (util > 0) {
-    const fh = (h - 4) * util / 100;
-    // A spent tier is drawn in the mark's deep teal, capped in the full colour; the live one in its tone.
-    g.append(el("rect", { x: x + 2, y: y + h - 2 - fh, width: w - 4, height: fh, rx: 6, fill: util >= 95 ? "var(--teal-deep)" : tone, opacity: util >= 95 ? 0.55 : 0.22 }));
-    g.append(el("rect", { x: x + 2, y: y + h - 2 - fh, width: w - 4, height: 3, rx: 1.5, fill: tone }));
+    const fh = (h - 3) * util / 100;
+    g.append(el("rect", { x: x + 1.5, y: y + h - 1.5 - fh, width: w - 3, height: fh, fill: tone(util), opacity: 0.3 }));
+    g.append(el("rect", { x: x + 1.5, y: y + h - 1.5 - fh, width: w - 3, height: 2.5, fill: tone(util) }));
   }
-  if (opts.tick !== false) {
-    const ty = y + h - 2 - (h - 4) * 0.95;
-    g.append(el("line", { x1: x + 6, x2: x + w - 6, y1: ty, y2: ty, stroke: "#cfe9e6", "stroke-width": 1, "stroke-dasharray": "3 4", opacity: 0.55 }));
-  }
-  if (opts.label) g.append(el("text", { x: x + w / 2, y: y + h + 28, "text-anchor": "middle", "font-size": 17, fill: opts.on ? "#e8fbf8" : "#7fa3a5", "font-weight": opts.on ? 650 : 450 }, opts.label));
-  if (opts.big) g.append(el("text", { x: x + w / 2, y: y + h / 2 + 14, "text-anchor": "middle", "font-size": 38, "font-weight": 700, fill: "#e8fbf8", "font-stretch": "85%" }, opts.big));
+  const ty = y + h - 1.5 - (h - 3) * 0.95;
+  g.append(el("line", { x1: x + 1.5, x2: x + w - 1.5, y1: ty, y2: ty, stroke: "var(--text)", "stroke-width": 1, "stroke-dasharray": "3 4", opacity: 0.6 }));
+  if (opts.label) g.append(el("text", { x: x + w / 2, y: y + h + 28, "text-anchor": "middle", "font-size": 17, fill: opts.on ? "var(--text)" : "var(--text-muted)", "font-weight": opts.on ? 700 : 400 }, opts.label));
+  if (opts.big) g.append(el("text", { x: x + w / 2, y: y + h / 2 + 14, "text-anchor": "middle", "font-size": 36, "font-weight": 700, fill: "var(--text)", "letter-spacing": -0.72 }, opts.big));
   s.append(g);
 }
 
+/** The wordmark: Archivo bold, tracking -0.03em, as the window's header. */
 function wordmark(s, x, y, size) {
-  s.append(el("text", { x, y, "font-size": size, "font-weight": 750, fill: "#e8fbf8", "font-stretch": "78%", "letter-spacing": -size * 0.025 }, "subman"));
+  s.append(el("text", { x, y, "font-size": size, "font-weight": 700, fill: "var(--text)", "letter-spacing": -size * 0.03 }, "subman"));
 }
 
-function arrowUp(s, x, y, label) {
-  s.append(el("path", { d: `M${x} ${y} l0 -26 m-7 7 l7 -7 l7 7`, stroke: "var(--teal)", "stroke-width": 2, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }));
-  if (label) s.append(el("text", { x, y: y + 22, "text-anchor": "middle", "font-size": 14, fill: "#7fa3a5" }, label));
+function arrowUp(s, x, y) {
+  s.append(el("path", { d: `M${x} ${y} l0 -26 m-7 7 l7 -7 l7 7`, stroke: "var(--text-muted)", "stroke-width": 1.7, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }));
 }
 
 // Banner.
 {
   const s = svgIn("banner", 1280, 420);
   mark(s, 72, 92, 72);
-  wordmark(s, 164, 150, 78);
-  s.append(el("text", { x: 76, y: 222, "font-size": 30, "font-weight": 500, fill: "#cfe9e6" }, "Every AI subscription you pay for,"));
-  s.append(el("text", { x: 76, y: 260, "font-size": 30, "font-weight": 500, fill: "#cfe9e6" }, "spent in full."));
-  s.append(el("text", { x: 76, y: 318, "font-size": 18, fill: "#7fa3a5" }, "Claude · Codex · Grok · Antigravity"));
-  s.append(el("text", { x: 76, y: 346, "font-size": 18, fill: "#7fa3a5" }, "Usage, resets, renewals, and a tier ladder that climbs when a window runs out."));
-  // A staircase: lower tiers spent, the current one filling, the next one waiting.
+  wordmark(s, 164, 152, 76);
+  s.append(el("text", { x: 76, y: 222, "font-size": 30, "font-weight": 500, fill: "var(--text)", "letter-spacing": -0.75 }, "Every AI subscription you pay for,"));
+  s.append(el("text", { x: 76, y: 260, "font-size": 30, "font-weight": 500, fill: "var(--accent)", "letter-spacing": -0.75 }, "spent in full."));
+  s.append(el("text", { x: 76, y: 318, "font-size": 18, fill: "var(--text-muted)" }, "Claude · Codex · Grok · Antigravity"));
+  s.append(el("text", { x: 76, y: 346, "font-size": 18, fill: "var(--text-muted)" }, "Usage, resets, renewals, and a tier ladder that climbs when a window runs out."));
+  // A staircase: lower tiers spent, the current one filling.
   const base = 330, w = 96, gap = 18, x0 = 820;
   const steps = [
     { h: 92, util: 100, label: "Pro" },
     { h: 150, util: 100, label: "Max" },
     { h: 208, util: 64, label: "Ultra", on: true, big: "64%" },
   ];
-  steps.forEach((t, i) => step(s, x0 + i * (w + gap), base - t.h, w, t.h, t.util, { id: "banner", label: t.label, on: t.on, big: t.big }));
+  steps.forEach((t, i) => step(s, x0 + i * (w + gap), base - t.h, w, t.h, t.util, { label: t.label, on: t.on, big: t.big }));
   arrowUp(s, x0 + w + gap / 2, base - 104);
   arrowUp(s, x0 + 2 * w + 1.5 * gap, base - 162);
-  s.append(el("text", { x: x0 + 3 * (w + gap) + 6, y: base - 196, "font-size": 15, fill: "#7fa3a5" }, "95%"));
-  s.append(el("text", { x: x0 + 3 * (w + gap) + 6, y: base - 178, "font-size": 15, fill: "#7fa3a5" }, "threshold"));
+  s.append(el("text", { x: x0 + 3 * (w + gap) + 6, y: base - 196, "font-size": 15, fill: "var(--text-muted)" }, "95%"));
+  s.append(el("text", { x: x0 + 3 * (w + gap) + 6, y: base - 178, "font-size": 15, fill: "var(--text-muted)" }, "threshold"));
 }
 
 // The ladder over one billing period.
 {
   const s = svgIn("cycle", 1280, 600);
-  s.append(el("text", { x: 64, y: 70, "font-size": 34, "font-weight": 720, fill: "#e8fbf8", "font-stretch": "82%" }, "One billing period on the ladder"));
-  s.append(el("text", { x: 64, y: 104, "font-size": 18, fill: "#9dbfc0" }, "A tier change starts a fresh usage window. Climbing one rung at a time spends the period across several windows."));
+  s.append(el("text", { x: 64, y: 70, "font-size": 34, "font-weight": 700, fill: "var(--text)", "letter-spacing": -0.85 }, "One billing period on the ladder"));
+  s.append(el("text", { x: 64, y: 104, "font-size": 18, fill: "var(--text-muted)" }, "A tier change starts a fresh usage window. Climbing one rung at a time spends the period across several windows."));
   const left = 64, right = 1216, floor = 470;
   const rise = { pro: 90, max: 160, ultra: 230 };
-  // Segments in time order: tier, how far the meter got, what ended it.
+  // Segments in time order: tier, relative length, what ended it.
   const segs = [
     { tier: "pro", w: 1.0, end: "step up" },
     { tier: "max", w: 1.15, end: "step up" },
@@ -143,58 +139,54 @@ function arrowUp(s, x, y, label) {
   const unit = (right - left - gap * (segs.length - 1)) / total;
   let x = left;
   const pts = [];
-  segs.forEach((g, i) => {
+  segs.forEach((g) => {
     const w = g.w * unit, h = rise[g.tier];
     const y = floor - h;
-    s.append(el("rect", { x, y, width: w, height: h, rx: 8, fill: g.parked ? "url(#hatch-cycle)" : "#08222a", stroke: "#1d4a51", "stroke-width": 1.5 }));
+    s.append(el("rect", { x, y, width: w, height: h, rx: 5, fill: g.parked ? "url(#hatch-cycle)" : "var(--surface)", stroke: "var(--border-strong)", "stroke-width": 1.5 }));
     if (!g.parked) {
-      // The meter climbing across the window: a ramp from empty to the threshold.
-      const ty = floor - 2 - (h - 4) * 0.95;
-      s.append(el("path", { d: `M${x + 2} ${floor - 2} L${x + w - 2} ${ty} L${x + w - 2} ${floor - 2} Z`, fill: "url(#ramp)" }));
-      s.append(el("path", { d: `M${x + 2} ${floor - 2} L${x + w - 2} ${ty}`, stroke: "var(--teal)", "stroke-width": 2.5, "stroke-linecap": "round" }));
-      s.append(el("circle", { cx: x + w - 2, cy: ty, r: 5, fill: "var(--hot)" }));
-      s.append(el("line", { x1: x + 6, x2: x + w - 6, y1: ty, y2: ty, stroke: "#cfe9e6", "stroke-width": 1, "stroke-dasharray": "3 4", opacity: 0.5 }));
+      // The meter climbing across the window, from empty to the threshold.
+      const ty = floor - 1.5 - (h - 3) * 0.95;
+      s.append(el("path", { d: `M${x + 1.5} ${floor - 1.5} L${x + w - 1.5} ${ty} L${x + w - 1.5} ${floor - 1.5} Z`, fill: "var(--accent)", opacity: 0.12 }));
+      s.append(el("path", { d: `M${x + 1.5} ${floor - 1.5} L${x + w - 1.5} ${ty}`, stroke: "var(--accent)", "stroke-width": 2.5, "stroke-linecap": "round" }));
+      s.append(el("line", { x1: x + 1.5, x2: x + w - 1.5, y1: ty, y2: ty, stroke: "var(--text)", "stroke-width": 1, "stroke-dasharray": "3 4", opacity: 0.6 }));
+      s.append(el("circle", { cx: x + w - 1.5, cy: ty, r: 5, fill: "var(--fail)" }));
     } else {
-      s.append(el("text", { x: x + w / 2, y: floor - h / 2 + 6, "text-anchor": "middle", "font-size": 17, fill: "#9dbfc0" }, "parked until renewal"));
+      s.append(el("text", { x: x + w / 2, y: floor - h / 2 + 6, "text-anchor": "middle", "font-size": 17, fill: "var(--text-muted)" }, "parked until renewal"));
     }
-    s.append(el("text", { x: x + 14, y: y + 26, "font-size": 16, "font-weight": 650, fill: "#e8fbf8" }, g.tier[0].toUpperCase() + g.tier.slice(1)));
-    pts.push({ x, w, end: g.end, y });
+    s.append(el("text", { x: x + 14, y: y + 26, "font-size": 16, "font-weight": 700, fill: "var(--text)" }, g.tier[0].toUpperCase() + g.tier.slice(1)));
+    pts.push({ x, w, end: g.end });
     x += w + gap;
   });
-  const grad = el("linearGradient", { id: "ramp", x1: 0, y1: 1, x2: 0, y2: 0 });
-  grad.append(el("stop", { offset: 0, "stop-color": "#7ee8dd", "stop-opacity": 0.03 }));
-  grad.append(el("stop", { offset: 1, "stop-color": "#7ee8dd", "stop-opacity": 0.28 }));
-  s.querySelector("defs").append(grad);
   // What ended each window, under the boundary it ended at.
-  const tone = { "step up": "var(--teal)", "banked reset": "var(--warn)", drop: "#ff9d90", renewal: "#9dbfc0" };
+  const ink = { "step up": "var(--accent)", "banked reset": "var(--warn)", drop: "var(--fail)", renewal: "var(--text-muted)" };
   pts.forEach((p) => {
     const bx = p.x + p.w + gap / 2;
-    s.append(el("line", { x1: bx, x2: bx, y1: floor + 10, y2: floor + 34, stroke: tone[p.end], "stroke-width": 2 }));
-    s.append(el("text", { x: Math.min(bx, right - 4), y: floor + 56, "text-anchor": bx > right - 40 ? "end" : "middle", "font-size": 15, "font-weight": 600, fill: tone[p.end] }, p.end));
+    s.append(el("line", { x1: bx, x2: bx, y1: floor + 10, y2: floor + 34, stroke: ink[p.end], "stroke-width": 2 }));
+    s.append(el("text", { x: Math.min(bx, right - 4), y: floor + 56, "text-anchor": bx > right - 40 ? "end" : "middle", "font-size": 15, "font-weight": 600, fill: ink[p.end] }, p.end));
   });
-  s.append(el("line", { x1: left, x2: right, y1: floor, y2: floor, stroke: "#2b5860", "stroke-width": 1.5 }));
-  s.append(el("text", { x: left, y: floor + 56, "font-size": 15, fill: "#9dbfc0" }, "renewal"));
+  s.append(el("line", { x1: left, x2: right, y1: floor, y2: floor, stroke: "var(--text-muted)", "stroke-width": 1.5 }));
+  s.append(el("text", { x: left, y: floor + 56, "font-size": 15, fill: "var(--text-muted)" }, "renewal"));
   // Legend.
   const ly = 560;
-  s.append(el("line", { x1: left, x2: left + 26, y1: ly - 5, y2: ly - 5, stroke: "#cfe9e6", "stroke-dasharray": "3 4", opacity: 0.6 }));
-  s.append(el("text", { x: left + 36, y: ly, "font-size": 15, fill: "#9dbfc0" }, "spend threshold, 95% by default"));
-  s.append(el("circle", { cx: left + 330, cy: ly - 5, r: 5, fill: "var(--hot)" }));
-  s.append(el("text", { x: left + 344, y: ly, "font-size": 15, fill: "#9dbfc0" }, "window spent, ladder acts after you confirm"));
-  s.append(el("text", { x: right, y: ly, "text-anchor": "end", "font-size": 15, fill: "#9dbfc0" }, "A banked reset is used only on the top tier."));
+  s.append(el("line", { x1: left, x2: left + 26, y1: ly - 5, y2: ly - 5, stroke: "var(--text)", "stroke-dasharray": "3 4", opacity: 0.6 }));
+  s.append(el("text", { x: left + 36, y: ly, "font-size": 15, fill: "var(--text-muted)" }, "spend threshold, 95% by default"));
+  s.append(el("circle", { cx: left + 330, cy: ly - 5, r: 5, fill: "var(--fail)" }));
+  s.append(el("text", { x: left + 344, y: ly, "font-size": 15, fill: "var(--text-muted)" }, "window spent, ladder acts after you confirm"));
+  s.append(el("text", { x: right, y: ly, "text-anchor": "end", "font-size": 15, fill: "var(--text-muted)" }, "A banked reset is used only on the top tier."));
 }
 
 // Social preview.
 {
   const s = svgIn("social", 1280, 640);
   mark(s, 96, 120, 96);
-  wordmark(s, 214, 196, 104);
-  s.append(el("text", { x: 100, y: 300, "font-size": 44, "font-weight": 520, fill: "#cfe9e6" }, "Every AI subscription you pay for,"));
-  s.append(el("text", { x: 100, y: 354, "font-size": 44, "font-weight": 520, fill: "#cfe9e6" }, "spent in full."));
-  s.append(el("text", { x: 100, y: 430, "font-size": 24, fill: "#7fa3a5" }, "Claude · Codex · Grok · Antigravity"));
-  s.append(el("text", { x: 100, y: 466, "font-size": 24, fill: "#7fa3a5" }, "Usage, resets, renewals, and a tier ladder."));
+  wordmark(s, 214, 198, 100);
+  s.append(el("text", { x: 100, y: 300, "font-size": 44, "font-weight": 500, fill: "var(--text)", "letter-spacing": -1.1 }, "Every AI subscription you pay for,"));
+  s.append(el("text", { x: 100, y: 354, "font-size": 44, "font-weight": 500, fill: "var(--accent)", "letter-spacing": -1.1 }, "spent in full."));
+  s.append(el("text", { x: 100, y: 430, "font-size": 24, fill: "var(--text-muted)" }, "Claude · Codex · Grok · Antigravity"));
+  s.append(el("text", { x: 100, y: 466, "font-size": 24, fill: "var(--text-muted)" }, "Usage, resets, renewals, and a tier ladder."));
   const base = 540, w = 92, gap = 16, x0 = 860;
   [{ h: 120, util: 100, label: "Pro" }, { h: 200, util: 100, label: "Max" }, { h: 280, util: 64, label: "Ultra", on: true, big: "64%" }]
-    .forEach((t, i) => step(s, x0 + i * (w + gap), base - t.h, w, t.h, t.util, { id: "social", label: t.label, on: t.on, big: t.big }));
+    .forEach((t, i) => step(s, x0 + i * (w + gap), base - t.h, w, t.h, t.util, { label: t.label, on: t.on, big: t.big }));
   arrowUp(s, x0 + w + gap / 2, base - 136);
   arrowUp(s, x0 + 2 * w + 1.5 * gap, base - 216);
 }
