@@ -234,6 +234,8 @@ type AccountView struct {
 	Ladder  LadderState `json:"ladder"`
 	Next    *Step       `json:"next,omitempty"`
 	Tiers   []Tier      `json:"tiers"`
+	// Threshold is Account.Threshold: the percent used at which a step fires.
+	Threshold float64 `json:"threshold"`
 	// History is the last plan changes, newest first.
 	History []HistoryEntry `json:"history,omitempty"`
 }
@@ -253,6 +255,10 @@ type Overview struct {
 	Problems []string `json:"problems"`
 	// Advice is every account's proposed next steps, soonest first.
 	Advice []Advice `json:"advice"`
+	// AutoPollChoices and ResetExpiryWarningMs carry the constants of the
+	// same names, so the window does not keep its own copy.
+	AutoPollChoices      []int `json:"autoPollChoices"`
+	ResetExpiryWarningMs int64 `json:"resetExpiryWarningMs"`
 }
 
 // UpdateStatus is the last self-update check.

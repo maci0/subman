@@ -87,6 +87,8 @@ export interface AccountView {
   ladder: LadderState;
   next?: Step;
   tiers: Tier[];
+  /** The percent used at which a ladder step fires for this account. */
+  threshold: number;
   /** The last plan changes, newest first. Absent when there are none. */
   history?: HistoryEntry[];
 }
@@ -123,6 +125,10 @@ export interface Overview {
   problems: string[];
   /** Every account's proposed next steps, soonest first. */
   advice: Advice[];
+  /** The automatic poll intervals on offer, in minutes. 0 is never. */
+  autoPollChoices: number[];
+  /** How long before a banked reset expires the window warns, in ms. */
+  resetExpiryWarningMs: number;
 }
 
 export interface ProbeResult {

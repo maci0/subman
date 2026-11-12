@@ -353,3 +353,23 @@ Changed:
 - `quota.RedeemReset` claims a Claude grant by id. The organization comes from the login, or from the profile for a copied Claude Code file. The ladder's reset step names the first grant that applies, which is the soonest to expire of those.
 
 Verified: `TestClaudeItemisesBankedResets`, `TestRedeemClaudeReset`, `go test -race ./...`, `bun test`, `bun run build`, `vnu` (no errors). From the installed binary, `accounts poll` lists the grants above with their labels and expiries, 2 resets with 1 usable on the first account. Against the live claim endpoint: the second account's already-spent weekly grant was claimed on purpose and the answer was `already_used`; a poll afterwards showed both of its Fable grants still at 1 left. A claim that spends a grant has not been run: that is the operator's to confirm in Run ladder.
+
+## 2026-11-12 audit fixes in the window
+
+The operator ran a technical audit of the window (contrast, target sizes, semantics, text scaling, motion, structure) and asked for every finding to be fixed. The audit scored 15/20 with 0 P0, 2 P1, 5 P2, 2 P3.
+
+Changed:
+
+- Stale readings: the usage list was dimmed with `opacity-60`, which put its text at 3.95:1 (dark) and 2.69:1 (light). The opacity now sits on the bar alone (`meter-stale`); the text keeps its colour. The meter's accessible name says "from an earlier poll".
+- Light `--destructive` went from `oklch(0.56 0.2 25)` to `oklch(0.5 0.19 25)`; error text on the card measured 4.08:1 before.
+- Text sizes are rem: body `0.9375rem`, and the 31 `text-[13px]` uses are one token, `text-fine` (`0.8125rem`).
+- Information that lived only in a hover tooltip is on the page: the board row shows the poll error after "poll failed", and the account view says in a sentence that a renewal date is an estimate. A truncated account name and plan carry their full text as a title.
+- Board tables: an `aria-label` per provider, `scope="col"` on every header, and the account cell is a row header.
+- Targets: the dialog and sheet Close buttons are 24px, switches take clicks 6px above and below, and the row, next-step, and ladder links are 24px high.
+- The poll spinner runs only under `motion-safe`; with reduced motion the icon turns the accent colour instead.
+- `App.tsx` (1,444 lines) is five files: `App.tsx`, `board.tsx`, `detail.tsx`, `forms.tsx`, `shared.tsx`. No behaviour moved with them.
+- The four constants the window mirrored from Go are gone. `AccountView.threshold`, `Overview.autoPollChoices`, and `Overview.resetExpiryWarningMs` carry them, and the provider order is the order `App.Providers` returns. `theme.test.ts` compares the frame colours in `main.go` with `--background`; they were already equal (`#f1f8f9`, `#04191e`).
+
+Verified in Chromium against the built frontend and sample data, both themes, 960x640, on the board, a stale failed account, and the Edit sheet: no text under 4.5:1 (3:1 for large text), no control under 24px, no horizontal scroll, every table labelled with column and row headers, a root font size of 200% gives 30px body and 26px fine text, no animation running during Poll all with reduced motion, no console errors. `TestOverviewCarriesWhatTheWindowWouldOtherwiseMirror`, `go vet ./...`, `go test -race ./...`, `bun test`, `bun run build`, `oxlint` (no warnings), `vnu` (no errors).
+
+Not verified: the real WebKitGTK window was not rebuilt or opened for this change, and no screen reader was run.

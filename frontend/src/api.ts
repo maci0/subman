@@ -1,7 +1,7 @@
 // The window calls the Go app through Wails. In a plain browser (vite dev
 // with no shell) every call fails the same way, and the page says so.
 
-import type { Account, AccountView, ImportRequest, LoginStart, Overview, ProbeResult, Provider, ProviderInfo, Settings, UpdateStatus } from "./types";
+import type { Account, AccountView, ImportRequest, LoginStart, Overview, ProbeResult, ProviderInfo, Settings, UpdateStatus } from "./types";
 
 interface Bridge {
   Overview(): Promise<Overview>;

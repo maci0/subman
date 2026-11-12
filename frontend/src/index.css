@@ -22,7 +22,7 @@
   --muted-foreground: oklch(0.46 0.03 215);
   --accent: var(--secondary);
   --accent-foreground: var(--foreground);
-  --destructive: oklch(0.56 0.2 25);
+  --destructive: oklch(0.5 0.19 25);
   --warn: oklch(0.52 0.13 60);
   /* Meter and step fills; brighter than --warn, which has to read as text. */
   --warn-fill: oklch(0.78 0.16 75);
@@ -74,6 +74,8 @@
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "DejaVu Sans Mono", monospace;
+  /* Secondary text: times, captions, help. One step under the 0.9375rem body. */
+  --text-fine: 0.8125rem;
 }
 
 @layer base {
@@ -92,7 +94,7 @@
     background: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans);
-    font-size: 15px;
+    font-size: 0.9375rem;
     font-variant-numeric: tabular-nums;
   }
 
@@ -117,6 +119,11 @@
   height: 10px;
   border-radius: 3px;
   background: var(--secondary);
+}
+
+/* A meter from a poll that has since failed: the bar fades, its text does not. */
+@utility meter-stale {
+  opacity: 0.55;
 }
 
 @utility meter-fill {

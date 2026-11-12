@@ -101,6 +101,9 @@ func (a *App) overview() (model.Overview, error) {
 		Settings:    settings,
 		Problems:    problems,
 		Advice:      advice,
+
+		AutoPollChoices:      model.AutoPollChoices,
+		ResetExpiryWarningMs: model.ResetExpiryWarning.Milliseconds(),
 	}, nil
 }
 
@@ -150,12 +153,13 @@ func (a *App) view(acc model.Account) (model.AccountView, error) {
 		return model.AccountView{}, err
 	}
 	return model.AccountView{
-		Account: acc,
-		Reading: rp,
-		Ladder:  shown,
-		Next:    step,
-		Tiers:   model.Tiers(acc.Provider),
-		History: history,
+		Account:   acc,
+		Reading:   rp,
+		Ladder:    shown,
+		Next:      step,
+		Tiers:     model.Tiers(acc.Provider),
+		Threshold: acc.Threshold(),
+		History:   history,
 	}, nil
 }
 

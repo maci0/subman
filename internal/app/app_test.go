@@ -432,3 +432,36 @@ func TestRunLadderUsesABankedResetAtTheTop(t *testing.T) {
 		t.Fatalf("below the top with no change command nothing is due, got %+v %v", ov.Accounts[0].Next, err)
 	}
 }
+
+// The window keeps no copy of these constants: it reads them from here.
+func TestOverviewCarriesWhatTheWindowWouldOtherwiseMirror(t *testing.T) {
+	dir := t.TempDir()
+	root, err := store.Open(filepath.Join(dir, "data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := filepath.Join(dir, "cred.json")
+	if err := os.WriteFile(src, []byte(`{}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a := New(root)
+	view, err := a.Import(model.ImportRequest{Name: "work", Provider: model.ProviderClaude, CredentialPath: src})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.Threshold != model.DefaultUsageThreshold {
+		t.Fatalf("threshold %v", view.Threshold)
+	}
+	acc := view.Account
+	acc.UsageThreshold = 80
+	if view, err = a.UpdateAccount(acc); err != nil || view.Threshold != 80 {
+		t.Fatalf("threshold %v, %v", view.Threshold, err)
+	}
+	ov, err := a.Overview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ov.AutoPollChoices) != len(model.AutoPollChoices) || ov.ResetExpiryWarningMs != model.ResetExpiryWarning.Milliseconds() {
+		t.Fatalf("choices %v, warning %d ms", ov.AutoPollChoices, ov.ResetExpiryWarningMs)
+	}
+}

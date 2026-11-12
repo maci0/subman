@@ -13,7 +13,7 @@ Go desktop tool that tracks Claude, Codex, Grok, and Antigravity subscriptions a
 - `internal/update` GitHub release check and checksum-verified replace.
 - `internal/desktop` the desktop session over D-Bus: a notification, and the light or dark preference from the settings portal. Linux only; other platforms return `ErrUnsupported`.
 - `internal/app` the Wails API. The CLI calls it too for add, set, remove, and the ladder run, so both share one implementation. It stays free of cgo.
-- `frontend/` Vite, Preact, Tailwind, shadcn components under `src/components/ui` (added with `bunx shadcn add`, then owned here). Radix and other React packages resolve to `preact/compat`; `bunfig.toml` keeps React itself out of `node_modules`. Light and dark tokens live in `src/index.css` and switch on `prefers-color-scheme`; there is no in-app toggle. `public/logo.svg` is the mark and the favicon. `bun` only.
+- `frontend/` Vite, Preact, Tailwind, shadcn components under `src/components/ui` (added with `bunx shadcn add`, then owned here). Radix and other React packages resolve to `preact/compat`; `bunfig.toml` keeps React itself out of `node_modules`. Light and dark tokens live in `src/index.css` and switch on `prefers-color-scheme`; there is no in-app toggle. `public/logo.svg` is the mark and the favicon. `bun` only. `src/App.tsx` holds the window state and frame, `board.tsx` the provider tables, `detail.tsx` the account view, `forms.tsx` the Edit sheet and Add dialog, `shared.tsx` what more than one of them draws. Text sizes are rem; secondary text uses the `text-fine` token.
 - `docs/PROVENANCE.md` append-only ledger.
 
 ## Contracts
@@ -33,6 +33,8 @@ Go desktop tool that tracks Claude, Codex, Grok, and Antigravity subscriptions a
 - A failed poll keeps the last good meters and marks them stale. `ok` stays false, and the ladder never acts on a reading that is not ok.
 - Every attempted plan change is appended to the account's `history.jsonl`, failed ones with their error.
 - The window polls on open and on the operator's interval. It never runs the ladder unasked: Run ladder shows the due steps and waits for a confirmation.
+- The window keeps no copy of a Go constant. The provider order is the order of `App.Providers`, an account's spend threshold is `AccountView.threshold`, and the poll intervals and the reset expiry warning are `Overview.autoPollChoices` and `Overview.resetExpiryWarningMs`. `frontend/src/theme.test.ts` fails when the frame colours in `main.go` and `--background` in `index.css` differ.
+- A reading kept from before a failed poll fades its bars only. Text is never dimmed with opacity.
 - `frontend/public/agents/` holds vendor marks copied from `@lobehub/icons-static-svg`; `NOTICE.txt` there names the source and license.
 
 ## CLI
