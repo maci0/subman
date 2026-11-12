@@ -67,6 +67,13 @@ func ValidProgram(program string) error {
 	return nil
 }
 
+// bareName reports whether program names an executable to be found on PATH.
+// Anything containing a path separator, on whichever platform this binary
+// runs, is already a path and must not be searched for.
+func bareName(program string) bool {
+	return !strings.ContainsRune(program, os.PathSeparator) && !strings.ContainsRune(program, '/')
+}
+
 func homeEnv(p model.Provider) string {
 	switch p {
 	case model.ProviderClaude:
@@ -146,8 +153,9 @@ func MaybeReexec(args []string) bool {
 	agent := args[1:]
 	// execve does not search PATH, so a bare name ("claude", "agy") is
 	// resolved here. This runs after confinement: the lookup only reads.
+	// A path uses the separator of the platform this binary was built for.
 	program := agent[0]
-	if !strings.Contains(program, "/") {
+	if bareName(program) {
 		resolved, err := exec.LookPath(program)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "sandbox exec: %s is not on PATH\n", program)

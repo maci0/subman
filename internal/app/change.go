@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -19,7 +20,11 @@ func runChange(command, from, to, work string) error {
 		return errNoCommand
 	}
 	bin := fields[0]
-	if strings.Contains(bin, "/") && !strings.HasPrefix(bin, "/") {
+	// A separator means a path, and only an absolute one is accepted: a
+	// relative path would be resolved against the account directory the
+	// child is confined to. The separator is the platform's own, so a
+	// Windows build accepts "C:\Tools\agy.exe" and still rejects "foo\bar".
+	if strings.ContainsAny(bin, `/\`) && !filepath.IsAbs(bin) {
 		return fmt.Errorf("change command must be an absolute path or a name on PATH")
 	}
 	args := make([]string, 0, len(fields)+1)

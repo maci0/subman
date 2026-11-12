@@ -38,7 +38,7 @@ func main() {
 		os.Exit(cli.Run(os.Args[1:], cli.Std()))
 	}
 
-	data := flag.String("data", os.Getenv("SUBMAN_DATA"), "data directory (default: $SUBMAN_DATA, then $XDG_DATA_HOME/subman)")
+	data := flag.String("data", os.Getenv("SUBMAN_DATA"), "data directory (default: $SUBMAN_DATA, then $XDG_DATA_HOME/subman, then the platform's own per-user data directory)")
 	flag.Parse()
 
 	root, err := store.Open(*data)

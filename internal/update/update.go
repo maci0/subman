@@ -225,7 +225,11 @@ func Install(ctx context.Context, plan Plan, dest string) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	if err := os.Rename(tmpName, dest); err != nil {
+	// Windows keeps an executable locked while it runs, so renaming onto dest
+	// fails for the very binary this command is replacing. Moving dest aside
+	// first is allowed, and the new file then takes its name. A failed
+	// replace puts dest back. Other platforms rename onto dest directly.
+	if err := replaceFile(tmpName, dest); err != nil {
 		return err
 	}
 	cleanup = false

@@ -43,16 +43,18 @@ type Root struct {
 	Path string
 }
 
-// DefaultRoot is $XDG_DATA_HOME/subman, or ~/.local/share/subman.
+// DefaultRoot is the data directory when none was named: $XDG_DATA_HOME/subman
+// when that variable is an absolute path, otherwise the platform's own
+// per-user data directory.
 func DefaultRoot() (string, error) {
 	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" && filepath.IsAbs(xdg) {
 		return filepath.Join(xdg, "subman"), nil
 	}
-	home, err := os.UserHomeDir()
+	base, err := defaultDataBase()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".local", "share", "subman"), nil
+	return filepath.Join(base, "subman"), nil
 }
 
 func Open(path string) (*Root, error) {
