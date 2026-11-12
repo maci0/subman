@@ -454,3 +454,7 @@ Verified: `go test ./internal/cli/` (pass), `gofmt`, `go vet ./internal/cli/`, a
 ## 2026-11-12 JetBrains Mono subset
 
 `jetbrains-mono.woff2` was the variable face at 28,300 bytes, and every open of the window fetched it: the footer prints the data directory in it. The window only sets `font-normal` and `font-semibold` on that family, and only for paths, commands and codes, which are ASCII. It is now two static faces, `jetbrains-mono-400.woff2` (4,708 bytes) and `jetbrains-mono-600.woff2` (4,768 bytes), instanced at those weights and subset to U+0020-007E, covering the same text in 9,476 bytes. `archivo.woff2` is unchanged. The OFL license in `frontend/public/fonts/licenses/` still covers both.
+
+## 2026-11-13 dependency updates
+
+`.github/dependabot.yml` watched only `github-actions`, so a new release of a Go module or a frontend package never opened a pull request. It now also watches the `gomod` ecosystem at `/` and the `bun` ecosystem at `/frontend`, weekly, with the `build` commit prefix. The `github-actions` entry is unchanged.
