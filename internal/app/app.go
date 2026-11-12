@@ -675,7 +675,14 @@ func (a *App) RunLadder() (model.Overview, error) {
 			// account's change command.
 			var err error
 			if step.Reset {
-				err = quota.RedeemReset(context.Background(), acc, step.CreditID)
+				// polledAt is part of the redeem's request id, so a retry of
+				// this reading spends one reset even when the response, or
+				// the ladder state, was lost.
+				var polledAt time.Time
+				if rp != nil {
+					polledAt = rp.PolledAt
+				}
+				err = quota.RedeemReset(context.Background(), acc, step.CreditID, polledAt)
 			} else {
 				err = applyStep(acc, *step)
 			}
@@ -687,8 +694,10 @@ func (a *App) RunLadder() (model.Overview, error) {
 				next.LastError = err.Error()
 				next.Phase = model.PhaseClimbing
 			} else {
-				// LastStep is what stops Decide from repeating this change on
-				// the same reading, so it is set before anything that can fail.
+				// LastStep stops Decide from repeating this change on the same
+				// reading. It is recorded only after the step succeeds: a
+				// failure leaves it unset, so the next run retries. A reset
+				// retry reuses the reading's request id and spends one reset.
 				next.LastStep = now
 				next.LastError = ""
 				if !step.Reset {

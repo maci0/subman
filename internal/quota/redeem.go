@@ -3,13 +3,15 @@ package quota
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/maci0/subman/internal/model"
 )
@@ -26,9 +28,14 @@ var claudeClaimURL = "https://api.anthropic.com/api/organizations/%s/reset_rate_
 
 // RedeemReset uses one banked reset on the account. creditID names the one
 // to use; Claude requires it, and for Codex an empty one lets the provider
-// pick. It returns nil only when the provider answers that a limit was
-// reset. Claude and Codex have the call; the others report no banked resets.
-func RedeemReset(ctx context.Context, acc model.Account, creditID string) error {
+// pick. polledAt is the reading the step was decided from. It returns nil
+// only when the provider answers that a limit was reset. Claude and Codex
+// have the call; the others report no banked resets.
+//
+// A second call with the same account, credit, and reading sends the same
+// request id, so a retry (a lost response, or a ladder run that died before
+// it recorded the step) spends one reset. A later reading is a new redeem.
+func RedeemReset(ctx context.Context, acc model.Account, creditID string, polledAt time.Time) error {
 	body, err := os.ReadFile(acc.CredentialFile)
 	if err != nil {
 		return fmt.Errorf("read credential: %w", err)
@@ -37,12 +44,7 @@ func RedeemReset(ctx context.Context, acc model.Account, creditID string) error 
 	if err := json.Unmarshal(body, &cred); err != nil {
 		return fmt.Errorf("credential is not json")
 	}
-	// The request id makes a retry of the same redeem spend one reset, not two.
-	id := make([]byte, 16)
-	if _, err := rand.Read(id); err != nil {
-		return err
-	}
-	requestID := hex.EncodeToString(id)
+	requestID := redeemRequestID(acc.ID, creditID, polledAt)
 	switch acc.Provider {
 	case model.ProviderCodex:
 		return redeemCodex(ctx, cred, creditID, requestID)
@@ -51,6 +53,16 @@ func RedeemReset(ctx context.Context, acc model.Account, creditID string) error 
 	default:
 		return fmt.Errorf("%s has no call to use a banked reset", acc.Provider)
 	}
+}
+
+// redeemRequestID is the provider's idempotency key for one logical redeem:
+// the account, the credit, and the reading it was decided from. The same
+// inputs always produce the same 32 hex characters, which is what Claude's
+// request_id and Codex's redeem_request_id are. A key minted per attempt
+// would make every retry look like a new redeem and spend a second reset.
+func redeemRequestID(accountID, creditID string, polledAt time.Time) string {
+	sum := sha256.Sum256([]byte(accountID + "\x00" + creditID + "\x00" + strconv.FormatInt(polledAt.UTC().UnixNano(), 10)))
+	return hex.EncodeToString(sum[:16])
 }
 
 // postRedeem sends one redeem request and decodes the JSON answer into out.
