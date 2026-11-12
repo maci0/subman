@@ -9,6 +9,11 @@ on:
 permissions:
   contents: write
 
+# GOTOOLCHAIN=auto lets a newer toolchain on the runner compile the release.
+# The go line in go.mod asks for 1.27.3, and this makes the build use it.
+env:
+  GOTOOLCHAIN: go1.27.3
+
 jobs:
   test:
     runs-on: ubuntu-24.04
@@ -121,14 +126,20 @@ jobs:
           # does not link. Windows builds with cgo off, so neither applies.
           CGO_LDFLAGS: ${{ matrix.goos == 'linux' && '-O2 -g -pie -Wl,-z,relro,-z,now -Wl,-z,noexecstack' || matrix.goos == 'darwin' && '-O2 -g -Wl,-pie -framework UniformTypeIdentifiers' || '' }}
         run: |
-          set -eu
+          set -euo pipefail
           args=()
           if [ -n "${{ matrix.tags }}" ]; then
             args+=(-tags "${{ matrix.tags }}")
           fi
           ver="${GITHUB_REF_NAME#v}"
+          # -buildmode=pie is the default on windows and darwin and refused on
+          # neither; linux defaults to a fixed-address executable.
+          if [ "${{ matrix.goos }}" = linux ]; then
+            args+=(-buildmode=pie -ldflags "-s -w -X main.version=${ver} -linkmode=external -extldflags=-Wl,-z,relro,-z,now")
+          else
+            args+=(-buildmode=pie -ldflags "-s -w -X main.version=${ver}")
+          fi
           go build -buildvcs=false -trimpath \
-            -ldflags "-s -w -X main.version=${ver}" \
             "${args[@]}" -o "${{ matrix.asset }}" .
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

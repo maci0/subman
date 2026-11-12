@@ -47,11 +47,15 @@ Notifications and the light or dark startup frame are Linux only.
 
 A tagged push publishes `subman-linux-amd64`, `subman-linux-arm64`, `subman-darwin-amd64`, `subman-darwin-arm64`, `subman-windows-amd64.exe`, and `subman-windows-arm64.exe`, plus `SHA256SUMS`. `subman update` installs the asset for the machine it is running on after the digest matches.
 
-To build it here: Go 1.27, bun, and WebKitGTK 4.1.
+To build it here: Go 1.27.3, bun 1.4.4, and WebKitGTK 4.1. A newer Go is
+not what the release is built with: `GOTOOLCHAIN=go1.27.3` selects the
+toolchain the `go` line names.
 
 ```bash
-cd frontend && bun install && bun run build && cd ..
-go build -tags production,webkit2_41 -o subman .
+cd frontend && bun install --frozen-lockfile && bun run build && cd ..
+GOTOOLCHAIN=go1.27.3 go build -buildvcs=false -trimpath -buildmode=pie \
+  -ldflags "-s -w -X main.version=0.1.1 -linkmode=external -extldflags=-Wl,-z,relro,-z,now" \
+  -tags production,webkit2_41 -o subman .
 ```
 
 ## First run

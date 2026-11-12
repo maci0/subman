@@ -95,7 +95,7 @@ Privilege: the child keeps the operator's uid. Landlock is the constraint, and i
 
 ### Build to runtime
 
-`main.go` embeds `frontend/dist`. The release workflow builds on a tag, runs `bun install --frozen-lockfile`, and stamps the version with `-ldflags`. No secret is baked in. The OAuth client ids in `internal/quota/login.go` and `internal/quota/renew.go` are the vendors' public CLI client ids.
+`main.go` embeds `frontend/dist`. The release workflow builds on a tag, runs `bun install --frozen-lockfile`, and stamps the version with `-ldflags`. `GOTOOLCHAIN=go1.27.3` keeps the compiler on the version the `go` line names. The Linux asset is built `-buildmode=pie` and linked externally with full RELRO, and its cgo code is compiled with a stack canary and `_FORTIFY_SOURCE=2`; the other assets take `-buildmode=pie`, which is already their default. No secret is baked in. The OAuth client ids in `internal/quota/login.go` and `internal/quota/renew.go` are the vendors' public CLI client ids.
 
 ## Assets
 
