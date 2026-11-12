@@ -9,6 +9,23 @@ import (
 	"github.com/maci0/subman/internal/model"
 )
 
+func TestResolveProgramLeavesAPathAlone(t *testing.T) {
+	// A path must not be looked up on PATH. On Windows that includes a
+	// drive path, which contains no "/".
+	for _, program := range []string{filepath.Join(t.TempDir(), "agy"), `C:\Tools\agy.exe`, "C:/Tools/agy.exe"} {
+		if !strings.ContainsRune(program, filepath.Separator) && !strings.ContainsRune(program, '/') {
+			continue
+		}
+		got, err := resolveProgram(program)
+		if err != nil || got != program {
+			t.Fatalf("%q resolved to %q (%v)", program, got, err)
+		}
+	}
+	if _, err := resolveProgram("subman-no-such-program"); err == nil {
+		t.Fatal("a missing bare name resolved")
+	}
+}
+
 func TestCheckReportsLandlock(t *testing.T) {
 	sup := Check()
 	if !sup.OK {

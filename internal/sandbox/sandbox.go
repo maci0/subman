@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -65,13 +66,6 @@ func ValidProgram(program string) error {
 		return errors.New("agent binary must be a single path with no shell metacharacters")
 	}
 	return nil
-}
-
-// bareName reports whether program names an executable to be found on PATH.
-// Anything containing a path separator, on whichever platform this binary
-// runs, is already a path and must not be searched for.
-func bareName(program string) bool {
-	return !strings.ContainsRune(program, os.PathSeparator) && !strings.ContainsRune(program, '/')
 }
 
 func homeEnv(p model.Provider) string {
@@ -154,18 +148,25 @@ func MaybeReexec(args []string) bool {
 	// execve does not search PATH, so a bare name ("claude", "agy") is
 	// resolved here. This runs after confinement: the lookup only reads.
 	// A path uses the separator of the platform this binary was built for.
-	program := agent[0]
-	if bareName(program) {
-		resolved, err := exec.LookPath(program)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "sandbox exec: %s is not on PATH\n", program)
-			os.Exit(1)
-		}
-		program = resolved
+	program, err := resolveProgram(agent[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sandbox exec: %s is not on PATH\n", agent[0])
+		os.Exit(1)
 	}
 	if err := unixExec(program, agent, kept); err != nil {
 		fmt.Fprintf(os.Stderr, "sandbox exec: %s: %v\n", program, err)
 		os.Exit(1)
 	}
 	return true
+}
+
+// resolveProgram returns program unchanged when it is already a path, and
+// looks a bare name up on PATH. The separator has to be the platform's own:
+// on Windows an absolute path contains no "/" and would otherwise be
+// searched for on PATH.
+func resolveProgram(program string) (string, error) {
+	if strings.ContainsRune(program, filepath.Separator) || strings.ContainsRune(program, '/') {
+		return program, nil
+	}
+	return exec.LookPath(program)
 }

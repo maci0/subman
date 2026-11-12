@@ -64,8 +64,13 @@ type Plan struct {
 // Check reports whether tag is newer than running, and which asset would
 // be installed. It does not download the binary.
 func Check(running, tag string, assets []Asset) Plan {
+	return checkFor(running, tag, assets, AssetName(runtime.GOOS, runtime.GOARCH))
+}
+
+// checkFor is Check for a named asset, so the decision is tested for every
+// released target and not only the host the test happens to run on.
+func checkFor(running, tag string, assets []Asset, name string) Plan {
 	st := model.UpdateStatus{Current: running, Latest: bare(tag)}
-	name := AssetName(runtime.GOOS, runtime.GOARCH)
 	plan := Plan{Status: st, WantName: name}
 	if name == "" {
 		st.Note = "no release asset for this os/arch"

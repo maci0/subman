@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
-	"runtime"
 	"testing"
 )
 
@@ -43,12 +42,12 @@ func TestAssetName(t *testing.T) {
 }
 
 func TestCheckAvailable(t *testing.T) {
-	if runtime.GOARCH != "amd64" || runtime.GOOS != "linux" {
-		t.Skip("asset name is host-specific")
-	}
-	p := Check("0.1.0", "v0.2.0", assets())
-	if !p.Status.Available || p.Asset.Name != "subman-linux-amd64" || p.Sums.Name != "SHA256SUMS" {
-		t.Fatalf("%+v", p)
+	for _, name := range []string{"subman-linux-amd64", "subman-windows-arm64.exe", "subman-darwin-arm64"} {
+		list := append(assets(), Asset{Name: name, URL: "https://github.com/maci0/subman/releases/download/v0.2.0/" + name})
+		p := checkFor("0.1.0", "v0.2.0", list, name)
+		if !p.Status.Available || p.Asset.Name != name || p.Sums.Name != "SHA256SUMS" {
+			t.Fatalf("%s: %+v", name, p)
+		}
 	}
 }
 
@@ -64,11 +63,8 @@ func TestCheckCurrentAndAhead(t *testing.T) {
 }
 
 func TestCheckRejectsMissingSums(t *testing.T) {
-	if runtime.GOARCH != "amd64" || runtime.GOOS != "linux" {
-		t.Skip()
-	}
-	only := []Asset{{Name: "subman-linux-amd64", URL: "https://github.com/maci0/subman/releases/download/v0.2.0/subman-linux-amd64"}}
-	p := Check("0.1.0", "v0.2.0", only)
+	only := []Asset{{Name: "subman-windows-amd64.exe", URL: "https://github.com/maci0/subman/releases/download/v0.2.0/subman-windows-amd64.exe"}}
+	p := checkFor("0.1.0", "v0.2.0", only, "subman-windows-amd64.exe")
 	if p.Status.Available {
 		t.Fatal(p.Status)
 	}

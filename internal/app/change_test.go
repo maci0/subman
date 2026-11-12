@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -46,8 +47,31 @@ func TestRunChangeReplacesPlaceholders(t *testing.T) {
 	}
 }
 
-func TestRunChangeRejectsRelativePath(t *testing.T) {
-	if err := runChange("foo/bar", "a", "b", t.TempDir()); err == nil {
-		t.Fatal("relative path accepted")
+// rejectedAsRelative reports whether runChange refuses cmd for not being an
+// absolute path. A missing program fails later, inside the sandbox, and that
+// is a different error.
+func rejectedAsRelative(t *testing.T, cmd string) bool {
+	t.Helper()
+	err := runChange(cmd, "a", "b", t.TempDir())
+	return err != nil && strings.Contains(err.Error(), "absolute path")
+}
+
+func TestRunChangePathForm(t *testing.T) {
+	if rejectedAsRelative(t, filepath.Join(t.TempDir(), "change")) {
+		t.Fatal("an absolute path was rejected")
+	}
+	if !rejectedAsRelative(t, "foo/bar") {
+		t.Fatal("a relative path was accepted")
+	}
+	// A backslash only separates on Windows. Elsewhere "foo\bar" is one name.
+	if rejectedAsRelative(t, `foo\bar`) != (filepath.Separator == '\\') {
+		t.Fatal(`"foo\bar" judged against the wrong separator`)
+	}
+	// Windows accepts a drive path with forward slashes, and the check used to
+	// reject every path that contained "/" but did not begin with one. Where
+	// that string is absolute it must pass; elsewhere it stays relative.
+	win := "C:/Tools/change.exe"
+	if rejectedAsRelative(t, win) == filepath.IsAbs(win) {
+		t.Fatalf("%q: IsAbs %v but the command was judged the other way", win, filepath.IsAbs(win))
 	}
 }

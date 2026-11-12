@@ -24,8 +24,12 @@ func runChange(command, from, to, work string) error {
 	// relative path would be resolved against the account directory the
 	// child is confined to. The separator is the platform's own, so a
 	// Windows build accepts "C:\Tools\agy.exe" and still rejects "foo\bar".
-	if strings.ContainsAny(bin, `/\`) && !filepath.IsAbs(bin) {
-		return fmt.Errorf("change command must be an absolute path or a name on PATH")
+	// filepath, not a "/" check: the released Windows binaries take
+	// "C:\Tools\change.exe".
+	if strings.ContainsRune(bin, filepath.Separator) || strings.ContainsRune(bin, '/') {
+		if !filepath.IsAbs(bin) {
+			return fmt.Errorf("change command must be an absolute path or a name on PATH")
+		}
 	}
 	args := make([]string, 0, len(fields)+1)
 	sawPlaceholder := false
