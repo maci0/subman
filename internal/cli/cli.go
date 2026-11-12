@@ -109,13 +109,26 @@ func takeGlobals(args []string) (string, []string, *Error) {
 	}
 }
 
+// wantsHelp reports a help request. --help and -h are help wherever they
+// appear, so a subcommand never reads one as an account id or an unknown
+// flag. A value that merely contains the letters, such as --help=me, is not.
+func wantsHelp(args []string) bool {
+	for _, a := range args {
+		if a == "--help" || a == "-h" || a == "help" {
+			return true
+		}
+	}
+	return false
+}
+
 func dispatch(args []string, streams IO, format string) error {
 	if len(args) == 0 {
 		return usageErr("a command is required", "subman --help")
 	}
-	switch args[0] {
-	case "help", "--help", "-h":
+	if wantsHelp(args) {
 		return writeHelp(streams.Out)
+	}
+	switch args[0] {
 	case "version", "--version", "-v":
 		return writeVersion(streams, format)
 	case "schema":
@@ -215,8 +228,6 @@ func dispatchAccounts(args []string, streams IO, format string) error {
 			return usageErr("accounts test needs an id", "subman accounts test <id>")
 		}
 		return accountsTest(root, args[1], streams, format)
-	case "--help", "-h":
-		return writeHelp(streams.Out)
 	default:
 		return usageErr("unknown accounts command "+args[0], "list, show, add, set, remove, poll, renew, test")
 	}
@@ -401,9 +412,6 @@ func dispatchUpdate(args []string, streams IO, format string) error {
 		switch a {
 		case "--check":
 			checkOnly = true
-		case "--help", "-h":
-			_, err := fmt.Fprintln(streams.Out, "usage: subman update [--check]")
-			return err
 		default:
 			return usageErr("unknown flag "+a, "subman update [--check]")
 		}

@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/maci0/subman/internal/app"
 	"github.com/maci0/subman/internal/cli"
@@ -27,17 +26,7 @@ var version = "0.1.1"
 // wantsCLI reports whether the arguments are a command rather than a
 // request to open the window. The command line follows CLI Spec v0.3.
 func wantsCLI(args []string) bool {
-	for _, a := range args {
-		switch a {
-		case "--output", "-o", "--help", "-h", "help", "version", "--version", "-v",
-			"schema", "accounts", "ladder", "update":
-			return true
-		}
-		if strings.HasPrefix(a, "--output=") {
-			return true
-		}
-	}
-	return false
+	return cli.WantsCLI(args)
 }
 
 func main() {
