@@ -122,6 +122,10 @@ func expired(p model.Provider, cred map[string]any, now time.Time) bool {
 		if t := isoTime(cred["expired"]); t != nil {
 			return !t.After(now)
 		}
+	case model.ProviderCodex:
+		if t := isoTime(asMap(cred["tokens"])["expires_at"]); t != nil {
+			return !t.After(now)
+		}
 	case model.ProviderGrok:
 		_, exp := grokToken(cred)
 		if t := isoTime(exp); t != nil {

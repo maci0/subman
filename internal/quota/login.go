@@ -382,6 +382,7 @@ func exchangeCodex(ctx context.Context, flow codeFlow, code, _, verifier, redire
 		IDToken      string `json:"id_token"`
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int    `json:"expires_in"`
 	}
 	if _, err := postLogin(ctx, flow.tokenURL, "application/x-www-form-urlencoded", userAgent, strings.NewReader(form.Encode()), &tok); err != nil {
 		return nil, err
@@ -393,6 +394,10 @@ func exchangeCodex(ctx context.Context, flow codeFlow, code, _, verifier, redire
 		"id_token":      tok.IDToken,
 		"access_token":  tok.AccessToken,
 		"refresh_token": tok.RefreshToken,
+	}
+	// The instant expired reads. exchangeClaude stores the same instant as "expired".
+	if exp := expiry(tok.ExpiresIn); exp != "" {
+		tokens["expires_at"] = exp
 	}
 	// fetchCodex sends the ChatGPT account id when the file has one.
 	if id := asString(asMap(jwtClaims(tok.IDToken)[codexAuthClaim])["chatgpt_account_id"]); id != "" {

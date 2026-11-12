@@ -127,6 +127,33 @@ func TestCodexLoginStoresAccountID(t *testing.T) {
 	if tokens["access_token"] != "at" || tokens["refresh_token"] != "rt" || tokens["account_id"] != "acct-1" || Identity(cred) != "dev@example.com" {
 		t.Fatalf("credential %v", cred)
 	}
+	if tokens["expires_at"] != nil {
+		t.Fatal("an answer with no expires_in stored an expiry")
+	}
+}
+
+func TestCodexLoginStoresExpiry(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"access_token": "at", "refresh_token": "rt", "expires_in": 3600,
+			"id_token": jwtWith(`{"email":"dev@example.com","https://api.openai.com/auth":{"chatgpt_account_id":"acct-1"}}`),
+		})
+	}))
+	defer srv.Close()
+	login, err := startCodeLogin(codeFlow{authURL: "https://example.test/a", tokenURL: srv.URL, clientID: "cid", scope: "openid", path: "/auth/callback", exchange: exchangeCodex})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer login.Close()
+	finish(t, login, "", "the-code")
+	cred, err := waitCred(t, login)
+	if err != nil {
+		t.Fatal(err)
+	}
+	when, perr := time.Parse(time.RFC3339, asString(asMap(cred["tokens"])["expires_at"]))
+	if perr != nil || time.Until(when) < 50*time.Minute {
+		t.Fatalf("expires_at %v", cred["tokens"])
+	}
 }
 
 func TestLoginIgnoresForeignStateAndReportsProviderError(t *testing.T) {

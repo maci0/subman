@@ -45,6 +45,17 @@ func TestExpiredFlatAndNested(t *testing.T) {
 	if expired(model.ProviderClaude, map[string]any{"access_token": "x"}, now) {
 		t.Fatal("no expiry counted as expired")
 	}
+	codexPast := map[string]any{"tokens": map[string]any{"expires_at": "2026-11-10T14:04:52Z"}}
+	if !expired(model.ProviderCodex, codexPast, now) {
+		t.Fatal("codex past")
+	}
+	codexFuture := map[string]any{"tokens": map[string]any{"expires_at": "2026-12-01T00:00:00Z"}}
+	if expired(model.ProviderCodex, codexFuture, now) {
+		t.Fatal("codex future")
+	}
+	if expired(model.ProviderCodex, map[string]any{"tokens": map[string]any{"access_token": "x"}}, now) {
+		t.Fatal("codex with no expiry counted as expired")
+	}
 }
 
 func TestFetchRenewsBeforePolling(t *testing.T) {

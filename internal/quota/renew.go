@@ -17,9 +17,12 @@ import (
 const (
 	claudeClientID   = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
 	codexClientID    = "app_EMoamEEZ73f0CkXaXp7hrann"
-	codexTokenURL    = "https://auth.openai.com/oauth/token"
 	grokDiscoveryURL = "https://auth.x.ai/.well-known/openid-configuration"
 )
+
+// codexTokenURL is a var so a test can point the refresh at a local server,
+// the same way claudeTokenURLs is.
+var codexTokenURL = "https://auth.openai.com/oauth/token"
 
 // claudeTokenURLs is tried in order. Anthropic moved the token endpoint;
 // a refresh minted before the move still answers at the old one.
@@ -137,6 +140,10 @@ func renewCodex(ctx context.Context, acc model.Account, cred map[string]any) err
 	}
 	if tok.Refresh != "" {
 		tokens["refresh_token"] = tok.Refresh
+	}
+	// The same instant exchangeCodex stored, so the next poll can see it has passed.
+	if exp := expiry(tok.ExpiresIn); exp != "" {
+		tokens["expires_at"] = exp
 	}
 	cred["tokens"] = tokens
 	return saveCred(acc, cred)
