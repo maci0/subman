@@ -1,6 +1,6 @@
 # Threat model
 
-Living model of what subman can be attacked through, what that costs, and which control stands in the way. Point fixes belong elsewhere; this file only names the surface. Last reviewed against the tree on 2026-11-12. Owner and review cadence are not set here.
+Living model of what subman can be attacked through, what that costs, and which control stands in the way. Point fixes belong elsewhere; this file only names the surface. Last reviewed against the tree on 2026-11-13. Owner and review cadence are not set here.
 
 subman is a single-user desktop program (Wails window, plus a CLI) that runs as the operator. It is not a network service and has no accounts of its own. The valuable things it holds are OAuth tokens for paid Claude, Codex, Grok, and Antigravity subscriptions, and the ability to spend them: a poll, a token refresh, a banked-reset redemption, and a plan-change command the operator configured.
 
@@ -28,6 +28,7 @@ Outbound HTTP, all as the operator
 - Usage, profile, and reset reads (`internal/quota/fetch.go`, `internal/quota/detail.go`).
 - Token refresh (`internal/quota/renew.go`) and banked-reset redemption (`internal/quota/redeem.go`).
 - GitHub release metadata and assets (`internal/update/update.go`, `FetchLatest`, `Install`). The window only checks (`internal/app/app.go`, `CheckUpdate`); the CLI can replace the binary (`internal/cli/cli.go`, `dispatchUpdate`).
+- `cmd/pollonce` is a separate binary and not part of the tool. It copies the file `SUBMAN_POLL_CRED` names into `SUBMAN_POLL_DATA` and polls it (`cmd/pollonce/main.go`). `SUBMAN_POLL_RAW=1` prints the raw provider answer. It holds the same tokens as the tool and is built from the same tree.
 
 Child processes, all through `sandbox.Run`
 
@@ -38,7 +39,8 @@ Child processes, all through `sandbox.Run`
 CLI and environment
 
 - Commands: `accounts`, `ladder`, `update`, `schema`, `version` (`internal/cli/cli.go`, `dispatch`). `ladder run` without `--dry-run` spends resets and runs change commands with no prompt (`internal/cli/manage.go`, `dispatchLadder`). The window asks first (`frontend/src/App.tsx`).
-- `SUBMAN_DATA` selects the data directory (`internal/cli/cli.go`, `openRoot`; `main.go` flag `-data`). `SUBMAN_UPDATE_REPO` selects the release repo, checked by `validRepo`. `GITHUB_TOKEN` is sent as a bearer to `api.github.com` (`internal/update/update.go`). `XDG_DATA_HOME` must be absolute or it is ignored (`internal/store/store.go`, `DefaultRoot`).
+- `SUBMAN_DATA` selects the data directory (`internal/cli/cli.go`, `openRoot`; `main.go` flag `-data`). `SUBMAN_UPDATE_REPO` selects the release repo, checked by `validRepo`. `GITHUB_TOKEN` is sent as a bearer to `api.github.com` (`internal/update/update.go`). `XDG_DATA_HOME` must be absolute or it is ignored (`internal/store/store.go`, `DefaultRoot`); on Windows the fallback reads `APPDATA`, also only when absolute (`internal/store/root_windows.go`).
+- `SUBMAN_POLL_DATA`, `SUBMAN_POLL_CRED`, and `SUBMAN_POLL_RAW` belong to `cmd/pollonce` only.
 - `SUBMAN_REEXEC` and `SUBMAN_SANDBOX` are the sandbox re-exec channel (`internal/sandbox/sandbox.go`, `MaybeReexec`). A normal launch that happens to carry `SUBMAN_REEXEC=1` confines itself and execs `args[1]`.
 
 Desktop IPC
@@ -79,7 +81,7 @@ Leaving: tokens go to the provider on each poll, refresh, and redemption, in an 
 
 Provider JSON is parsed and size-capped (`maxBody` in `internal/quota/fetch.go`, `maxLoginBody` in `internal/quota/login.go`). A good poll overwrites the stored tier and a stated renewal date (`internal/app/app.go`, `adopt`). An estimated renewal fills an empty date or replaces an earlier estimate only. An id token is decoded with no signature check (`internal/quota/identity.go`, `jwtClaims`), and Codex activation and renewal dates are read from its claims (`internal/quota/dates.go`). A tampered token file can therefore set those dates and the displayed email. The token still has to be accepted by the provider for a poll to succeed.
 
-`http.DefaultClient` is used for provider calls. `get` rejects a `Location` that is not `https` (`internal/quota/fetch.go`). Redirects on the POST paths (token exchange, refresh, redemption) are the client's default, which follows them.
+No provider call uses `http.DefaultClient`. Every request that carries a bearer token, and the sign-in exchange, refresh, and redemption, goes through `noRedirect`, whose `CheckRedirect` returns `ErrUseLastResponse` (`internal/quota/fetch.go`; used by `internal/quota/login.go`, `internal/quota/renew.go`, `internal/quota/redeem.go`). The update client refuses redirects the same way (`internal/update/update.go`). A `Location` is therefore never followed, and the token is not resent to a host the answer names.
 
 Codex dates are the sharp case. `stateDates` reads the period start and end out of the unverified id token (`internal/quota/dates.go`), and `adopt` writes a stated renewal over a date the operator typed (`internal/app/app.go`). The ladder times its drop to the cheapest tier from that date, so a token file edited on disk can move when a plan change is due. It cannot mint a poll: `adopt` returns immediately when the reading is not ok, and ok requires the provider to accept the access token.
 
@@ -117,6 +119,7 @@ Privilege: the child keeps the operator's uid. Landlock is the constraint, and i
 - Ladder does not repeat a step on the reading that caused it: `internal/app/app.go`, `RunLadder`, `LastStep`.
 - Every attempted plan change is appended to `history.jsonl`, failures included: `internal/store/store.go`, `AppendHistory`.
 - Response and asset size caps: `internal/quota/fetch.go`, `internal/update/update.go`.
+- No redirect is followed on a token-bearing request, the sign-in exchange, or the update download: `internal/quota/fetch.go` (`noRedirect`), `internal/update/update.go`.
 
 ## Not covered
 
