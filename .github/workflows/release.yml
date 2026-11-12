@@ -23,7 +23,11 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
       # The root package embeds frontend/dist, which only the build job makes.
+      # GOTOOLCHAIN=local keeps the go.mod version this step installed: a go
+      # line or a toolchain line in a dependency must not fetch another one.
       - run: go test ./internal/... ./cmd/...
+        env:
+          GOTOOLCHAIN: local
 
   build:
     needs: test
@@ -97,11 +101,22 @@ jobs:
       - name: compile
         shell: bash
         env:
+          # local keeps the go.mod version setup-go installed. A go line or a
+          # toolchain line in a dependency must not fetch another toolchain.
+          GOTOOLCHAIN: local
           CGO_ENABLED: ${{ matrix.cgo }}
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          # Wails' macOS file dialog uses UTType; plain go build does not link its framework.
-          CGO_LDFLAGS: ${{ matrix.goos == 'darwin' && '-framework UniformTypeIdentifiers' || '' }}
+          # cgo is only on for linux and darwin. These replace Go's own
+          # "-O2 -g" default, so that default is restated here: stack canary,
+          # FORTIFY, and position-independent code. -fPIE is a no-op on darwin,
+          # which builds PIE by default.
+          CGO_CFLAGS: -O2 -g -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE
+          # The linker defaults are not hardened. Linux gets a PIE with full
+          # RELRO and a non-executable stack; darwin gets its own PIE flags plus
+          # the UTType framework Wails' file dialog needs and plain go build
+          # does not link. Windows builds with cgo off, so neither applies.
+          CGO_LDFLAGS: ${{ matrix.goos == 'linux' && '-O2 -g -pie -Wl,-z,relro,-z,now -Wl,-z,noexecstack' || matrix.goos == 'darwin' && '-O2 -g -Wl,-pie -framework UniformTypeIdentifiers' || '' }}
         run: |
           set -eu
           args=()
