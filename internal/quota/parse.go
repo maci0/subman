@@ -531,9 +531,5 @@ func titleWords(s string) string {
 }
 
 func trimLabel(s string) string {
-	s = strings.TrimSpace(s)
-	if len(s) > model.MaxNameLen {
-		s = s[:model.MaxNameLen]
-	}
-	return s
+	return model.TruncateRunes(strings.TrimSpace(s), model.MaxNameLen)
 }

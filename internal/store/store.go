@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/maci0/subman/internal/model"
 )
@@ -194,7 +195,7 @@ func CheckRequest(req model.ImportRequest) error {
 	if !req.Provider.Known() {
 		return fmt.Errorf("unknown provider %q", req.Provider)
 	}
-	if name := strings.TrimSpace(req.Name); name == "" || len(name) > model.MaxNameLen {
+	if name := strings.TrimSpace(req.Name); name == "" || utf8.RuneCountInString(name) > model.MaxNameLen {
 		return fmt.Errorf("name must be 1 to %d characters", model.MaxNameLen)
 	}
 	// An empty tier is "not known yet": the first good poll may state it.

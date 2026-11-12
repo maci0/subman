@@ -170,10 +170,7 @@ func claudeResets(ctx context.Context, token string) model.Credits {
 		for _, limit := range g.Clears {
 			clearsFullest = clearsFullest || limit == fullest
 		}
-		title := g.Label
-		if len(title) > maxResetTitle {
-			title = title[:maxResetTitle]
-		}
+		title := model.TruncateRunes(g.Label, maxResetTitle)
 		credit := model.ResetCredit{
 			ID: g.ID, Type: g.Type, Title: title, GrantedAt: isoTime(g.StartsAt), ExpiresAt: isoTime(g.EndsAt),
 			Left: g.ResetsLeft, Clears: g.Clears, Applies: g.UsableNow && !g.Paused && clearsFullest,

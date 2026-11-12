@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"unicode/utf8"
 )
 
 // RunError is a child that was not started because it could not be confined.
@@ -69,7 +70,7 @@ func Run(ctx context.Context, cmd Command) ([]byte, error) {
 	err = child.Run()
 	out := buf.Bytes()
 	if len(out) > maxOutput {
-		out = append(out[:maxOutput], []byte("\n…truncated")...)
+		out = append(out[:runeCut(out, maxOutput)], []byte("\n…truncated")...)
 	}
 	if err != nil && bytes.HasPrefix(out, []byte("sandbox:")) {
 		line := string(out)
@@ -90,10 +91,25 @@ func exitCode(err error) int {
 }
 
 func outputString(out []byte) string {
-	if len(out) > maxOutput {
-		return string(out[:maxOutput]) + "\n…truncated"
+	if len(out) <= maxOutput {
+		return string(out)
 	}
-	return string(out)
+	return string(out[:runeCut(out, maxOutput)]) + "\n…truncated"
+}
+
+// runeCut is the furthest index at or before n that begins a rune, so a byte
+// budget never ends inside a multi-byte character. n <= 0 returns 0.
+func runeCut(b []byte, n int) int {
+	if n <= 0 {
+		return 0
+	}
+	if n > len(b) {
+		n = len(b)
+	}
+	for n > 0 && !utf8.RuneStart(b[n]) {
+		n--
+	}
+	return n
 }
 
 func noteFor(err error, out []byte) string {

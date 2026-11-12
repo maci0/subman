@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/maci0/subman/internal/model"
 	"github.com/maci0/subman/internal/sandbox"
 )
 
@@ -39,10 +40,7 @@ func runChange(command, from, to, work string) error {
 	argv := append([]string{bin}, args...)
 	out, err := sandbox.Run(ctx, sandbox.Command{Dir: work, Writable: work, Args: argv})
 	if err != nil {
-		msg := strings.TrimSpace(string(out))
-		if len(msg) > 400 {
-			msg = msg[:400]
-		}
+		msg := model.TruncateRunes(strings.TrimSpace(string(out)), 400)
 		if msg == "" {
 			return err
 		}

@@ -8,6 +8,7 @@ package model
 import (
 	"fmt"
 	"time"
+	"unicode/utf8"
 )
 
 // Provider is a vendor subman knows how to read.
@@ -123,9 +124,27 @@ type Account struct {
 const (
 	// DefaultUsageThreshold is the percent used at which a ladder step fires.
 	DefaultUsageThreshold = 95
-	// MaxNameLen bounds a label copied into the window.
+	// MaxNameLen bounds a label copied into the window, counted in runes.
+	// A multi-byte character counts as one, and a cut never splits one.
 	MaxNameLen = 64
 )
+
+// TruncateRunes shortens s to at most n runes, ending on a rune boundary.
+// n <= 0 returns "". A short string is returned unchanged.
+func TruncateRunes(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	if utf8.RuneCountInString(s) <= n {
+		return s
+	}
+	i := 0
+	for range n {
+		_, size := utf8.DecodeRuneInString(s[i:])
+		i += size
+	}
+	return s[:i]
+}
 
 func (a Account) Threshold() float64 {
 	if a.UsageThreshold <= 0 || a.UsageThreshold > 100 {

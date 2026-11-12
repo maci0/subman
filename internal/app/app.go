@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/maci0/subman/internal/desktop"
 	"github.com/maci0/subman/internal/ladder"
@@ -290,9 +291,7 @@ func NewRequest(req model.ImportRequest, identity string) model.ImportRequest {
 	if req.Name == "" {
 		req.Name = req.Provider.Title()
 	}
-	if len(req.Name) > model.MaxNameLen {
-		req.Name = req.Name[:model.MaxNameLen]
-	}
+	req.Name = model.TruncateRunes(req.Name, model.MaxNameLen)
 	return req
 }
 
@@ -578,7 +577,7 @@ func (a *App) UpdateAccount(acc model.Account) (model.AccountView, error) {
 	}
 	acc.Name = strings.TrimSpace(acc.Name)
 	switch {
-	case acc.Name == "" || len(acc.Name) > model.MaxNameLen:
+	case acc.Name == "" || utf8.RuneCountInString(acc.Name) > model.MaxNameLen:
 		return model.AccountView{}, fmt.Errorf("%w: name must be 1 to %d characters", ErrInvalid, model.MaxNameLen)
 	case acc.TierID != "" && !model.KnownTier(current.Provider, acc.TierID):
 		return model.AccountView{}, fmt.Errorf("%w: %s has no tier %q", ErrInvalid, current.Provider, acc.TierID)
