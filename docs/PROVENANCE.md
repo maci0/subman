@@ -450,3 +450,7 @@ Not verified: the workflow has not been run from this change.
 The window binary routed only known commands to the CLI, so `subman --bogus` fell through to `flag.Parse`, which writes the standard flag package's own usage to stderr and exits 2 with no error envelope. A flag the window does not own now reaches the CLI, which reports kind `usage`. `--data` stays the window's flag. `cli.WantsCLI` is what both the window and the tests use.
 
 Verified: `go test ./internal/cli/` (pass), `gofmt`, `go vet ./internal/cli/`, and `go build ./cmd/subman`. From that binary, `--help` and `-h` on `accounts show`, `accounts remove`, `accounts add`, `ladder`, `ladder run`, `schema`, `update`, and `version` exit 0 with the usage on stdout and nothing on stderr, and `--bogus` exits 2 with a `usage` envelope on stderr and nothing on stdout. `go test` of the window package was not run: it embeds `frontend/dist`, which is not built here.
+
+## 2026-11-12 JetBrains Mono subset
+
+`jetbrains-mono.woff2` was the variable face at 28,300 bytes, and every open of the window fetched it: the footer prints the data directory in it. The window only sets `font-normal` and `font-semibold` on that family, and only for paths, commands and codes, which are ASCII. It is now two static faces, `jetbrains-mono-400.woff2` (4,708 bytes) and `jetbrains-mono-600.woff2` (4,768 bytes), instanced at those weights and subset to U+0020-007E, covering the same text in 9,476 bytes. `archivo.woff2` is unchanged. The OFL license in `frontend/public/fonts/licenses/` still covers both.
