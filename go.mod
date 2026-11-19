@@ -5,7 +5,7 @@ go 1.27.3
 require (
 	github.com/godbus/dbus/v5 v5.2.4
 	github.com/wailsapp/wails/v2 v2.17.1
-	golang.org/x/mod v0.42.0
+	golang.org/x/mod v0.43.0
 	golang.org/x/sys v0.50.0
 	golang.org/x/term v0.47.0
 	golang.org/x/text v0.42.0
